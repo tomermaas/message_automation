@@ -1,6 +1,7 @@
-from dataclasses import dataclass, field
-from pathlib import Path
+# app/config.py
+from __future__ import annotations
 import os
+from dataclasses import dataclass, field
 from typing import List
 
 @dataclass
@@ -9,8 +10,7 @@ class _Config:
     headless: bool = os.getenv("HEADLESS", "true").lower() in ("1", "true", "yes")
     cors_origins: List[str] = field(
         default_factory=lambda: os.getenv(
-            "CORS_ORIGINS",
-            "http://127.0.0.1:8765,http://localhost:8765"
+            "CORS_ORIGINS", "http://127.0.0.1:8765,http://localhost:8765"
         ).split(",")
     )
     data_root: str = os.getenv("DATA_ROOT", "data")

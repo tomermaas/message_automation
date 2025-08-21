@@ -68,13 +68,15 @@ class AsyncKidumSession:
     def get_logged_in_display_name(self) -> Optional[str]:
         return self._display_name
 
-    def get_teacher_id(self) -> Optional[str]:
-        return self._teacher_id
-    def set_selected_course_id(self, course_id: Optional[int]) -> None:
+    def get_teacher_id(self) -> str | None:
+        return getattr(self, "_teacher_id", None)
+
+    def set_selected_course_id(self, course_id: int | None) -> None:
         self._selected_course_id = int(course_id) if course_id is not None else None
 
-    def get_selected_course_id(self) -> Optional[int]:
-        return self._selected_course_id
+    def get_selected_course_id(self) -> int | None:
+        return getattr(self, "_selected_course_id", None)
+
 
 
     # ---------- debug ----------
@@ -367,23 +369,21 @@ class AsyncKidumSession:
         items = await self.scrape_class_options()
         return [x["label"] for x in items if x.get("label")]
 
+    # --- API: distance details ---
     async def api_get_distance_details(self, course_id: int):
         """
-        Calls LMS API:
-          /api/get-distance-details?teacher_id=<sub>&course_id=<course_id>
-        Requires self._jwt and self._teacher_id to be set at login.
+        Calls /api/get-distance-details with the current JWT and teacher_id.
+        Returns the 'data' array from the payload.
         """
         if not self._jwt or not self._teacher_id:
-            raise RuntimeError("Not logged in (missing token or teacher_id).")
+            raise RuntimeError("Not logged in (no JWT/teacher_id).")
 
-        url = f"https://lmsapi.kidum-me.com/api/get-distance-details"
-        params = {"teacher_id": self._teacher_id, "course_id": int(course_id)}
-        headers = {"Authorization": f"Bearer {self._jwt}", "Accept": "application/json"}
-
+        url = f"https://lmsapi.kidum-me.com/api/get-distance-details?teacher_id={self._teacher_id}&course_id={course_id}"
+        headers = {"Authorization": f"Bearer {self._jwt}"}
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.get(url, params=params, headers=headers)
-            resp.raise_for_status()
-            payload = resp.json()
-            if not payload or not payload.get("status"):
-                return []
-            return payload.get("data") or []
+            r = await client.get(url, headers=headers)
+            r.raise_for_status()
+            payload = r.json()
+            if not payload.get("status"):
+                raise RuntimeError(f"Distance API error: {payload}")
+            return payload.get("data", [])

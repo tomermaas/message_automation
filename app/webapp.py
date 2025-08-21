@@ -13,12 +13,21 @@ from pydantic import BaseModel
 
 from app.config import CONFIG
 from automation.browser_async import AsyncKidumSession
-from app.services.sync import SyncOrchestrator
+
+from app.services.orchestrator import SyncOrchestrator
+from app.services.paths import course_dir
+
+from fastapi import Query
+from app.services.paths import distance_db_path
+import sqlite3, html
+
+
 
 from fastapi import Query
 import sqlite3
 from app.db.storage import CourseStore
 app = FastAPI()
+SYNC = SyncOrchestrator(Path(CONFIG.data_root))
 
 # Template engine (ui/web_templates)
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -68,7 +77,6 @@ def _atexit_close():
         except Exception:
             pass
 
-SYNC = SyncOrchestrator(Path(CONFIG.data_root))
 
 # ---------- UI ----------
 @app.get("/", response_class=HTMLResponse)
@@ -111,21 +119,51 @@ async def logout():
 async def courses(names_only: bool = False):
     s = await _ensure_logged_in()
 
-    data: List[Dict] = []
+    # Try backend API first
+    normalized: List[Dict] = []
     try:
-        data = await s.api_get_courses()
+        raw = await s.api_get_courses()  # returns the LMS payload you showed
+        # Normalize to [{id, name}]
+        for row in (raw or []):
+            cid = row.get("course_id") or row.get("id") or (row.get("courses") or {}).get("id")
+            name = row.get("name") or (row.get("courses") or {}).get("name")
+            if cid and name:
+                try:
+                    cid = int(cid)
+                except Exception:
+                    pass
+                normalized.append({"id": cid, "name": name})
     except Exception:
-        pass
+        # fall through to UI scraping
+        normalized = []
 
-    if data:
+    if normalized:
         if names_only:
-            return {"ok": True, "data": [c.get("name", "") for c in data if c.get("name")], "selected_id": s.get_selected_course_id() if hasattr(s, "get_selected_course_id") else None}
-        return {"ok": True, "data": data, "selected_id": s.get_selected_course_id() if hasattr(s, "get_selected_course_id") else None}
+            return {
+                "ok": True,
+                "data": [c["name"] for c in normalized],
+                "selected_id": s.get_selected_course_id() if hasattr(s, "get_selected_course_id") else None,
+            }
+        return {
+            "ok": True,
+            "data": normalized,
+            "selected_id": s.get_selected_course_id() if hasattr(s, "get_selected_course_id") else None,
+        }
 
+    # Fallback (UI scrape only returns labels; no IDs available)
     labels = await s.list_classes()
     if names_only:
-        return {"ok": True, "data": labels, "selected_id": s.get_selected_course_id() if hasattr(s, "get_selected_course_id") else None}
-    return {"ok": True, "data": [{"name": lbl} for lbl in labels], "selected_id": s.get_selected_course_id() if hasattr(s, "get_selected_course_id") else None}
+        return {
+            "ok": True,
+            "data": labels,
+            "selected_id": s.get_selected_course_id() if hasattr(s, "get_selected_course_id") else None,
+        }
+    return {
+        "ok": True,
+        "data": [{"id": None, "name": lbl} for lbl in labels],
+        "selected_id": s.get_selected_course_id() if hasattr(s, "get_selected_course_id") else None,
+    }
+
 
 @app.get("/status")
 async def status():
@@ -142,6 +180,9 @@ async def status():
 class SelectCourseBody(BaseModel):
     course_id: int
 
+class SelectCourseBody(BaseModel):
+    course_id: int
+
 @app.post("/select_course")
 async def select_course(body: SelectCourseBody):
     s = await _ensure_logged_in()
@@ -149,50 +190,89 @@ async def select_course(body: SelectCourseBody):
         raise HTTPException(status_code=500, detail="Server missing selection support.")
     s.set_selected_course_id(body.course_id)
 
-    # Run the sync immediately
-    orch = SyncOrchestrator(Path(CONFIG.data_root))
-    summary = await orch.run(s, body.course_id)
+    # RUN SYNC NOW so messages are generated
+    summary = await SYNC.sync_all(s, body.course_id)
 
-    return {"ok": True, "selected_id": s.get_selected_course_id(), "sync": summary}
+    return {"ok": True, "selected_id": s.get_selected_course_id(), "summary": summary}
+
 
 from fastapi import Query
 
-@app.get("/debug/distance")
-async def debug_distance(course_id: int | None = Query(None)):
-    s = await _ensure_logged_in()
-    # Try query param, else use the current selection
-    cid = course_id or (s.get_selected_course_id() if hasattr(s, "get_selected_course_id") else None)
-    if not cid:
-        raise HTTPException(status_code=400, detail="Provide ?course_id=... or select a course first.")
+@app.get("/debug/distance", response_class=HTMLResponse)
+async def debug_distance(request: Request,
+                         course_id: int | None = Query(default=None),
+                         refresh: bool = Query(default=False),
+                         limit: int = Query(default=500)):
+    s = _get_session(False)
+    # Resolve course id: explicit param > selected in session
+    if course_id is None:
+        if s and s.get_selected_course_id():
+            course_id = s.get_selected_course_id()
+        else:
+            return HTMLResponse("No course selected. Supply ?course_id=... or select a course in the UI.", status_code=400)
 
-    # read the SQLite
-    import sqlite3
-    from app.db.storage import CourseStore
-    store = CourseStore(Path(CONFIG.data_root), int(cid), s.get_teacher_id())
-    db = store.db_path("distance.sqlite")
-    if not db.exists():
-        return {"ok": True, "rows": []}
+    # Optionally re-sync
+    if refresh and s:
+        try:
+            from app.services.orchestrator import create_orchestrator
+            _sync = create_orchestrator()
+            await _sync.run(s, int(course_id))
+        except Exception as e:
+            return HTMLResponse(f"Sync failed: {html.escape(str(e))}", status_code=500)
 
-    conn = sqlite3.connect(str(db))
+    dbp = distance_db_path(int(course_id))
+    if not dbp.exists():
+        return HTMLResponse(f"DB missing for course {course_id} at {dbp}. Select the course first.", status_code=404)
+
+    con = sqlite3.connect(dbp)
+    cur = con.cursor()
+    rows = cur.execute(
+        """SELECT student_id, student_name_he, last_exam_date, exam_name_he,
+                  target_score, total_score, gap, gap_change, updated_at
+             FROM distance
+            ORDER BY student_name_he COLLATE NOCASE
+            LIMIT ?""",
+        (int(limit),)
+    ).fetchall()
+    con.close()
+
+    # Render simple HTML table
+    def esc(x): return html.escape("" if x is None else str(x))
+    trs = "\n".join(
+        f"<tr><td>{esc(r[0])}</td><td>{esc(r[1])}</td><td>{esc(r[2])}</td>"
+        f"<td>{esc(r[3])}</td><td>{esc(r[4])}</td><td>{esc(r[5])}</td>"
+        f"<td>{esc(r[6])}</td><td>{esc(r[7])}</td><td>{esc(r[8])}</td></tr>"
+        for r in rows
+    )
+    html_doc = f"""
+    <html dir="rtl" lang="he"><head><meta charset="utf-8">
+    <title>Debug Distance</title>
+    <style>table{{border-collapse:collapse}}td,th{{border:1px solid #ccc;padding:.3rem .5rem}}</style>
+    </head><body>
+    <h2>Distance DB — Course {esc(course_id)}</h2>
+    <p><a href="/debug/distance?course_id={esc(course_id)}&refresh=1">רענן / סנכרן כעת</a></p>
+    <table>
+      <thead><tr>
+        <th>student_id</th><th>student_name_he</th><th>last_exam_date</th>
+        <th>exam_name_he</th><th>target_score</th><th>total_score</th>
+        <th>gap</th><th>gap_change</th><th>updated_at</th>
+      </tr></thead>
+      <tbody>
+        {trs or '<tr><td colspan="9"><i>אין נתונים</i></td></tr>'}
+      </tbody>
+    </table>
+    </body></html>
+    """
+    return HTMLResponse(html_doc)
+# --- Debug: messages table ---
+from app.db.storage import CourseStore
+from pathlib import Path
+
+@app.get("/debug/messages")
+async def debug_messages(course_id: int):
     try:
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT student_id, student_name_he, last_exam_date, exam_name_he, target_score, total_score
-            FROM distances
-            WHERE course_id=?
-            ORDER BY student_name_he
-        """, (int(cid),))
-        rows = [
-            {
-                "student_id": r[0],
-                "student_name_he": r[1],
-                "last_exam_date": r[2],
-                "exam_name_he": r[3],
-                "target_score": r[4],
-                "total_score": r[5],
-            }
-            for r in cur.fetchall()
-        ]
-        return {"ok": True, "rows": rows, "course_id": int(cid)}
-    finally:
-        conn.close()
+        rows = SYNC.list_messages(course_id)
+        return {"ok": True, "count": len(rows), "data": rows}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

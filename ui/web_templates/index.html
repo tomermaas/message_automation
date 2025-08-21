@@ -130,6 +130,10 @@ async function $post(url, body) {
   return data;
 }
 
+function showCourseBlock(show) {
+  document.getElementById('course-block').style.display = show ? 'block' : 'none';
+}
+
 function setStatus(s) {
   const el = document.getElementById('status');
   el.classList.remove('status-ok','status-err','status-warn');
@@ -137,59 +141,68 @@ function setStatus(s) {
   else if (s === false) { el.textContent = 'לא מחובר'; el.classList.add('status-warn'); }
   else { el.textContent = s; el.classList.add('status-err'); }
 }
+
 function setProfile(displayName, teacherId) {
-  document.getElementById('displayName').textContent = displayName || '—';
-  document.getElementById('teacherId').textContent = teacherId || '—';
+  const dn = document.getElementById('displayName');
+  const tid = document.getElementById('teacherId');
+  if (dn) dn.textContent = displayName || '—';
+  if (tid) tid.textContent = teacherId || '—';
 }
-function showCourseBlock(show) {
-  document.getElementById('course-block').classList.toggle('hidden', !show);
-}
-function fillCoursesFromApiPayload(items, selectedId) {
+
+function fillCourses(items, selectedId) {
   const sel = document.getElementById('courseSelect');
   sel.innerHTML = '';
-  const list = Array.isArray(items) ? items : [];
-  if (list.length === 0) {
+  const empty = document.createElement('option');
+  empty.value = '';
+  empty.textContent = '— בחרו קורס —';
+  sel.appendChild(empty);
+
+  if (!items || items.length === 0) {
     const opt = document.createElement('option');
     opt.value = '';
     opt.textContent = '— אין נתונים —';
     sel.appendChild(opt);
     return;
   }
-  for (const c of list) {
-    const id = c.id ?? c.course_id ?? (c.courses && c.courses.id);
-    const name = c.name ?? (c.courses && c.courses.name) ?? '(ללא שם)';
+  for (const c of items) {
     const opt = document.createElement('option');
-    opt.value = id ?? '';
-    opt.textContent = id ? `${name} (#${id})` : name;
+    opt.value = c.id ?? '';
+    opt.textContent = c.name ?? '';
+    if (selectedId != null && c.id == selectedId) opt.selected = true;
     sel.appendChild(opt);
   }
-  if (selectedId) { sel.value = String(selectedId); }
 }
+
+async function loadCourses(auto=false) {
+  const st = document.getElementById('courseStatus');
+  if (st) st.textContent = auto ? 'טוען קורסים...' : 'מרענן קורסים...';
+  try {
+    // IMPORTANT: ask for full objects (id + name), not names_only
+    const res = await $get('/courses');
+    if (res && res.ok) {
+      fillCourses(res.data || [], res.selected_id);
+      showCourseBlock(true);
+      if (st) st.textContent = `נמצאו ${res.data?.length ?? 0} קורסים.`;
+    } else {
+      if (st) st.textContent = 'שגיאה בטעינת קורסים.';
+    }
+  } catch (e) {
+    if (st) st.textContent = 'שגיאה: ' + (e.message || e);
+  }
+}
+
 async function refreshStatusAndMaybeLoad() {
   try {
     const s = await $get('/status');
     setStatus(!!s.logged_in);
     setProfile(s.display_name, s.teacher_id);
     showCourseBlock(!!s.logged_in);
-    if (s.logged_in) { await loadCourses(true); } else { fillCoursesFromApiPayload([], null); }
-  } catch (e) { setStatus(String(e.message || e)); }
-}
-async function loadCourses(auto=false) {
-  const msg = document.getElementById('coursesMsg');
-  const status = document.getElementById('courseStatus');
-  msg.textContent = auto ? 'טוען קורסים...' : 'מרענן קורסים...';
-  status.textContent = '';
-  try {
-    const res = await $get('/courses');
-    const items = res && res.data ? res.data : [];
-    const selectedId = res && res.selected_id ? res.selected_id : null;
-    fillCoursesFromApiPayload(items, selectedId);
-    msg.textContent = `נמצאו ${items.length} קורסים.`;
-    status.textContent = selectedId ? `נבחר קורס #${selectedId}` : 'לא נבחר קורס';
+    if (s.logged_in) await loadCourses(true);
   } catch (e) {
-    msg.textContent = 'שגיאה: ' + (e.message || e);
+    setStatus(String(e.message || e));
   }
 }
+
 async function doLogin() {
   const u = document.getElementById('username').value.trim();
   const p = document.getElementById('password').value;
@@ -200,14 +213,13 @@ async function doLogin() {
     m.textContent = 'התחברות הצליחה.';
     setStatus(true);
     setProfile(data.display_name, data.teacher_id);
-    showCourseBlock(true);
     await loadCourses(true);
   } catch (e) {
     setStatus(false);
-    showCourseBlock(false);
     m.textContent = 'שגיאה: ' + (e.message || e);
   }
 }
+
 async function doLogout() {
   const m = document.getElementById('loginMsg');
   m.textContent = 'מתנתק...';
@@ -216,23 +228,30 @@ async function doLogout() {
     m.textContent = 'התנתקת.';
     setStatus(false);
     setProfile(null, null);
+    fillCourses([]);
     showCourseBlock(false);
-    fillCoursesFromApiPayload([], null);
-  } catch (e) { m.textContent = 'שגיאה: ' + (e.message || e); }
+  } catch (e) {
+    m.textContent = 'שגיאה: ' + (e.message || e);
+  }
 }
-document.getElementById('btnLogin').addEventListener('click', doLogin);
-document.getElementById('btnLogout').addEventListener('click', doLogout);
-document.getElementById('btnLoadCourses').addEventListener('click', () => loadCourses(false));
-document.getElementById('courseSelect').addEventListener('change', async (ev) => {
-  const courseId = Number(ev.target.value || 0);
-  const status = document.getElementById('courseStatus');
-  if (!courseId) { status.textContent = 'לא נבחר קורס'; return; }
-  status.textContent = 'שומר בחירה...';
+
+document.getElementById('btnLogin')?.addEventListener('click', doLogin);
+document.getElementById('btnLogout')?.addEventListener('click', doLogout);
+
+// Persist selection
+document.getElementById('courseSelect')?.addEventListener('change', async (ev) => {
+  const cid = parseInt(ev.target.value, 10);
+  if (!cid) return;
+  const st = document.getElementById('courseStatus');
+  if (st) st.textContent = 'שומר בחירה...';
   try {
-    const res = await $post('/select_course', { course_id: courseId });
-    status.textContent = res && res.ok ? `נבחר קורס #${res.selected_id}` : 'שמירה נכשלה';
-  } catch (e) { status.textContent = 'שגיאה: ' + (e.message || e); }
+    const r = await $post('/select_course', { course_id: cid });
+    if (st) st.textContent = 'נשמר ✔';
+  } catch (e) {
+    if (st) st.textContent = 'שגיאה: ' + (e.message || e);
+  }
 });
+
 refreshStatusAndMaybeLoad();
 </script>
 </body>
