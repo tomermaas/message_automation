@@ -1,9 +1,14 @@
 from __future__ import annotations
 import os
-from typing import Optional, List, Dict
+import json
+import base64
+import re
+from typing import Optional, List, Dict, Any
+
 from playwright.async_api import async_playwright, TimeoutError as PWTimeoutError
+import httpx
+
 from app.config import CONFIG
-import base64, json, httpx
 
 SUCCESS_LABEL_SELECTOR = 'label[for="select-placeholder"]'
 
@@ -23,10 +28,9 @@ class AsyncKidumSession:
         self._page = None
         self._headless = CONFIG.headless if headless is None else headless
         self._display_name: Optional[str] = None
-
-        # API auth
         self._jwt: Optional[str] = None
         self._teacher_id: Optional[str] = None
+        self._bound_req_listener = False
 
     # ---------- lifecycle ----------
     async def _ensure_started(self):
@@ -35,10 +39,11 @@ class AsyncKidumSession:
         self._pw = await async_playwright().start()
         self._browser = await self._pw.chromium.launch(
             headless=self._headless,
-            args=["--no-sandbox"]
+            args=["--no-sandbox"],
         )
         self._page = await self._browser.new_page()
         self._page.set_default_timeout(15000)
+        self._bind_request_listener()
 
     async def close(self):
         try:
@@ -50,6 +55,10 @@ class AsyncKidumSession:
                 await self._pw.stop()
                 self._pw = None
             self._page = None
+            self._jwt = None
+            self._teacher_id = None
+            self._display_name = None
+            self._bound_req_listener = False
 
     @property
     def page(self):
@@ -57,9 +66,6 @@ class AsyncKidumSession:
 
     def get_logged_in_display_name(self) -> Optional[str]:
         return self._display_name
-
-    def get_jwt(self) -> Optional[str]:
-        return self._jwt
 
     def get_teacher_id(self) -> Optional[str]:
         return self._teacher_id
@@ -75,52 +81,105 @@ class AsyncKidumSession:
         except Exception:
             pass
 
-    # ---------- helpers: token extraction ----------
-    async def _extract_jwt_and_teacher(self) -> None:
-        """
-        Pull the JWT out of localStorage/sessionStorage and decode the teacher_id from the 'sub' claim.
-        """
-        page = self.page
-        token: Optional[str] = await page.evaluate("""
-            () => {
-              const looksLikeJwt = v => /^eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(v);
-              const fromStore = (s) => {
-                try {
-                  for (const k of Object.keys(s)) {
-                    const v = s.getItem(k);
-                    if (!v) continue;
-                    if (v.startsWith('Bearer ')) return v.slice(7);
-                    if (looksLikeJwt(v)) return v;
-                  }
-                } catch (e) {}
-                return null;
-              };
-              return fromStore(localStorage) || fromStore(sessionStorage) || null;
-            }
-        """)
+    # ---------- auth helpers ----------
+    def _bind_request_listener(self):
+        if not self._page or self._bound_req_listener:
+            return
 
-        if not token:
-            # best-effort: also check cookies if ever moved there (not expected)
-            token = None
+        def _on_request(req):
+            try:
+                auth = req.headers.get("authorization") or req.headers.get("Authorization")
+                if auth and "Bearer " in auth and not self._jwt:
+                    token = auth.split("Bearer ", 1)[1].strip()
+                    if self._looks_like_jwt(token):
+                        self._jwt = token
+                        if not self._teacher_id:
+                            self._teacher_id = self._decode_jwt_sub(token)
+            except Exception:
+                pass
 
-        if not token:
-            raise RuntimeError("Login succeeded but no JWT was found in storage.")
+        self._page.on("request", _on_request)
+        self._bound_req_listener = True
 
-        self._jwt = token
+    @staticmethod
+    def _looks_like_jwt(s: str) -> bool:
+        return bool(re.match(r"^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$", s.strip()))
 
-        # Decode base64url JWT payload and get 'sub'
+    @staticmethod
+    def _b64url_decode(s: str) -> bytes:
+        s += "=" * ((4 - len(s) % 4) % 4)
+        return base64.urlsafe_b64decode(s.encode("utf-8"))
+
+    def _decode_jwt_sub(self, jwt: str) -> Optional[str]:
         try:
-            payload_b64 = token.split(".")[1]
-            pad = "=" * ((4 - (len(payload_b64) % 4)) % 4)
-            payload_json = base64.urlsafe_b64decode(payload_b64 + pad).decode("utf-8", "ignore")
-            payload = json.loads(payload_json)
-            sub = payload.get("sub")
-            self._teacher_id = str(sub).strip() if sub else None
-        except Exception as e:
-            raise RuntimeError(f"Could not decode JWT payload: {e}")
+            parts = jwt.split(".")
+            if len(parts) != 3:
+                return None
+            payload = json.loads(self._b64url_decode(parts[1]).decode("utf-8"))
+            return payload.get("sub")
+        except Exception:
+            return None
 
-        if not self._teacher_id:
-            raise RuntimeError("JWT did not contain a 'sub' (teacher_id).")
+    async def _harvest_jwt_from_storage(self) -> None:
+        """Scan localStorage/sessionStorage for a JWT (even embedded JSON)."""
+        page = self.page
+        if not page:
+            return
+
+        js = """
+(() => {
+  const extractToken = (val) => {
+    if (!val) return null;
+    let s = typeof val === 'string' ? val : JSON.stringify(val);
+    // Try explicit Bearer
+    let m = s.match(/Bearer\\s+([A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+)/);
+    if (m) return m[1];
+    // Try raw JWT
+    m = s.match(/([A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+)/);
+    if (m) return m[1];
+    return null;
+  };
+  const scan = (store) => {
+    if (!store) return null;
+    const keys = [];
+    for (let i = 0; i < store.length; i++) keys.push(store.key(i));
+    for (const k of keys) {
+      try {
+        const v = store.getItem(k);
+        let t = extractToken(v);
+        if (t) return t;
+        try {
+          const o = JSON.parse(v);
+          t = extractToken(o);
+          if (t) return t;
+        } catch (_) {}
+      } catch (_) {}
+    }
+    return null;
+  };
+  return scan(window.localStorage) || scan(window.sessionStorage) || null;
+})()
+"""
+        try:
+            token = await page.evaluate(js)
+            if token and self._looks_like_jwt(token):
+                self._jwt = token
+                if not self._teacher_id:
+                    self._teacher_id = self._decode_jwt_sub(token)
+        except Exception:
+            pass
+
+    def debug_auth_snapshot(self) -> Dict[str, Any]:
+        """Safe to return in /debug_auth."""
+        preview = None
+        if self._jwt:
+            preview = self._jwt[:20] + "..." if len(self._jwt) > 20 else self._jwt
+        return {
+            "have_jwt": bool(self._jwt),
+            "jwt_preview": preview,
+            "teacher_id": self._teacher_id,
+            "display_name": self._display_name,
+        }
 
     # ---------- actions ----------
     async def login(self, username: str, password: str) -> bool:
@@ -133,17 +192,10 @@ class AsyncKidumSession:
         await page.get_by_role("textbox", name="סיסמה").fill(password)
         await page.get_by_role("button", name="התחברות למערכת").click()
 
-        # settle after submit/redirect
+        # settle
         try:
             await page.wait_for_load_state("networkidle", timeout=20000)
         except PWTimeoutError:
-            pass
-
-        # Ensure we're on teacher home (some flows need explicit nav)
-        try:
-            await page.goto(f"{CONFIG.base_url.rstrip('/')}/teacher-home", wait_until="networkidle")
-        except Exception:
-            # if already there or route is client-side, proceed
             pass
 
         # success guard: the display-name label gets non-empty value
@@ -157,7 +209,6 @@ class AsyncKidumSession:
                 timeout=20000,
             )
         except PWTimeoutError:
-            await self._debug_dump("login_failed_no_label")
             return False
 
         try:
@@ -165,77 +216,44 @@ class AsyncKidumSession:
         except Exception:
             self._display_name = None
 
-        # Extract JWT + teacher_id for backend API calls
-        try:
-            await self._extract_jwt_and_teacher()
-        except Exception:
-            # non-fatal to allow UI-only flows, but indicate failure for API usage
-            await self._debug_dump("jwt_extract_failed")
-            # We still return True because the UI is usable.
-            pass
+        # Try to collect JWT/teacher_id
+        if not self._jwt or not self._teacher_id:
+            await self._harvest_jwt_from_storage()
 
         return True
 
-    # ---------- backend API ----------
-    async def api_get_courses(self) -> List[Dict]:
+    # ---------- API path ----------
+    async def api_get_courses(self) -> List[Dict[str, Any]]:
         """
-        Preferred way to get course list via backend API.
-        Returns the raw 'data' array items.
+        Use captured JWT + teacher_id to call the API server-side (no CORS).
+        Returns a list of course dicts (empty on failure).
         """
+        if not self._jwt:
+            # Try once more (in case storage got set post-login)
+            await self._harvest_jwt_from_storage()
         if not self._jwt or not self._teacher_id:
-            raise RuntimeError("Not authenticated for API (missing jwt/teacher_id).")
-
-        url = "https://lmsapi.kidum-me.com/api/get-courses"
-        params = {"teacher_id": self._teacher_id}
-        headers = {"Authorization": f"Bearer {self._jwt}", "Accept": "application/json"}
-
-        async with httpx.AsyncClient(timeout=20) as client:
-            r = await client.get(url, params=params, headers=headers)
-            if r.status_code == 401:
-                raise RuntimeError("401 Unauthorized from get-courses (token expired).")
-            r.raise_for_status()
-            j = r.json()
-            if not (isinstance(j, dict) and j.get("status") and "data" in j):
-                return []
-            data = j["data"]
-            return data if isinstance(data, list) else []
-
-    async def list_classes(self) -> List[str]:
-        """
-        Returns course labels (names) for the currently logged-in teacher.
-        Tries the backend API first; falls back to scraping the dropdown if needed.
-        """
-        # Try API first
-        try:
-            data = await self.api_get_courses()
-            names = [str(item.get("name", "")).strip() for item in data if str(item.get("name", "")).strip()]
-            if names:
-                return names
-        except Exception:
-            # fall through to UI
-            pass
-
-        # UI fallback (react-select list)
-        try:
-            options = await s.get_courses()
-            return [o["label"] for o in options]
-        except Exception:
-            await self._debug_dump("list_classes_failed")
             return []
 
-    async def find_course_by_label(self, label: str) -> Optional[Dict]:
-        """
-        Convenience: returns the API course object by its label (exact match), if available.
-        """
-        try:
-            for c in await self.api_get_courses():
-                if str(c.get("name", "")).strip() == str(label).strip():
-                    return c
-        except Exception:
-            pass
-        return None
+        url = f"https://lmsapi.kidum-me.com/api/get-courses?teacher_id={self._teacher_id}"
+        headers = {
+            "Authorization": f"Bearer {self._jwt}",
+            "Accept": "application/json",
+            "User-Agent": "kidum-automation/1.0",
+        }
+        timeout = httpx.Timeout(20.0, read=20.0, connect=10.0)
 
-    # ---------- dropdown (portal-safe) ----------
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            try:
+                r = await client.get(url, headers=headers)
+                r.raise_for_status()
+                payload = r.json()
+                if isinstance(payload, dict) and payload.get("status") and isinstance(payload.get("data"), list):
+                    return payload["data"]
+            except Exception:
+                return []
+        return []
+
+    # ---------- dropdown (UI fallback; portal-safe) ----------
     async def _dropdown_container(self):
         page = self.page
         cont = page.locator(CONTROL_SEL)
@@ -309,10 +327,6 @@ class AsyncKidumSession:
         return out
 
     async def select_class_by_label(self, label: str) -> None:
-        """
-        UI-side selection of a class in the react-select dropdown (only needed if downstream UI
-        actually depends on the selection). For pure data flows, prefer using API objects directly.
-        """
         await self._open_class_dropdown()
         page = self.page
 
@@ -340,3 +354,8 @@ class AsyncKidumSession:
             )
         except Exception:
             pass
+
+    # Convenience for fallback to names-only shape used by webapp
+    async def list_classes(self) -> List[str]:
+        items = await self.scrape_class_options()
+        return [x["label"] for x in items if x.get("label")]

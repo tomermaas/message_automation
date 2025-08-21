@@ -414,3 +414,7 @@ async def status():
         "display_name": s.get_logged_in_display_name() if s else None,
         "teacher_id": s.get_teacher_id() if s else None,
     }
+@app.get("/debug_auth")
+async def debug_auth():
+    s = await _ensure_logged_in()
+    return {"ok": True, **s.debug_auth_snapshot()}
