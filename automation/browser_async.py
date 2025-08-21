@@ -366,3 +366,24 @@ class AsyncKidumSession:
     async def list_classes(self) -> List[str]:
         items = await self.scrape_class_options()
         return [x["label"] for x in items if x.get("label")]
+
+    async def api_get_distance_details(self, course_id: int):
+        """
+        Calls LMS API:
+          /api/get-distance-details?teacher_id=<sub>&course_id=<course_id>
+        Requires self._jwt and self._teacher_id to be set at login.
+        """
+        if not self._jwt or not self._teacher_id:
+            raise RuntimeError("Not logged in (missing token or teacher_id).")
+
+        url = f"https://lmsapi.kidum-me.com/api/get-distance-details"
+        params = {"teacher_id": self._teacher_id, "course_id": int(course_id)}
+        headers = {"Authorization": f"Bearer {self._jwt}", "Accept": "application/json"}
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(url, params=params, headers=headers)
+            resp.raise_for_status()
+            payload = resp.json()
+            if not payload or not payload.get("status"):
+                return []
+            return payload.get("data") or []

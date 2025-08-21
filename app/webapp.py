@@ -13,7 +13,11 @@ from pydantic import BaseModel
 
 from app.config import CONFIG
 from automation.browser_async import AsyncKidumSession
+from app.services.sync import SyncOrchestrator
 
+from fastapi import Query
+import sqlite3
+from app.db.storage import CourseStore
 app = FastAPI()
 
 # Template engine (ui/web_templates)
@@ -63,6 +67,8 @@ def _atexit_close():
             asyncio.get_event_loop().run_until_complete(s.close())
         except Exception:
             pass
+
+SYNC = SyncOrchestrator(Path(CONFIG.data_root))
 
 # ---------- UI ----------
 @app.get("/", response_class=HTMLResponse)
@@ -142,4 +148,51 @@ async def select_course(body: SelectCourseBody):
     if not hasattr(s, "set_selected_course_id"):
         raise HTTPException(status_code=500, detail="Server missing selection support.")
     s.set_selected_course_id(body.course_id)
-    return {"ok": True, "selected_id": s.get_selected_course_id()}
+
+    # Run the sync immediately
+    orch = SyncOrchestrator(Path(CONFIG.data_root))
+    summary = await orch.run(s, body.course_id)
+
+    return {"ok": True, "selected_id": s.get_selected_course_id(), "sync": summary}
+
+from fastapi import Query
+
+@app.get("/debug/distance")
+async def debug_distance(course_id: int | None = Query(None)):
+    s = await _ensure_logged_in()
+    # Try query param, else use the current selection
+    cid = course_id or (s.get_selected_course_id() if hasattr(s, "get_selected_course_id") else None)
+    if not cid:
+        raise HTTPException(status_code=400, detail="Provide ?course_id=... or select a course first.")
+
+    # read the SQLite
+    import sqlite3
+    from app.db.storage import CourseStore
+    store = CourseStore(Path(CONFIG.data_root), int(cid), s.get_teacher_id())
+    db = store.db_path("distance.sqlite")
+    if not db.exists():
+        return {"ok": True, "rows": []}
+
+    conn = sqlite3.connect(str(db))
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT student_id, student_name_he, last_exam_date, exam_name_he, target_score, total_score
+            FROM distances
+            WHERE course_id=?
+            ORDER BY student_name_he
+        """, (int(cid),))
+        rows = [
+            {
+                "student_id": r[0],
+                "student_name_he": r[1],
+                "last_exam_date": r[2],
+                "exam_name_he": r[3],
+                "target_score": r[4],
+                "total_score": r[5],
+            }
+            for r in cur.fetchall()
+        ]
+        return {"ok": True, "rows": rows, "course_id": int(cid)}
+    finally:
+        conn.close()
