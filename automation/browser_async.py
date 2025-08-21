@@ -31,6 +31,7 @@ class AsyncKidumSession:
         self._jwt: Optional[str] = None
         self._teacher_id: Optional[str] = None
         self._bound_req_listener = False
+        self._selected_course_id: Optional[int] = None
 
     # ---------- lifecycle ----------
     async def _ensure_started(self):
@@ -69,6 +70,12 @@ class AsyncKidumSession:
 
     def get_teacher_id(self) -> Optional[str]:
         return self._teacher_id
+    def set_selected_course_id(self, course_id: Optional[int]) -> None:
+        self._selected_course_id = int(course_id) if course_id is not None else None
+
+    def get_selected_course_id(self) -> Optional[int]:
+        return self._selected_course_id
+
 
     # ---------- debug ----------
     async def _debug_dump(self, tag: str) -> None:
