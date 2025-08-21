@@ -3,16 +3,18 @@ from typing import Optional
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeoutError
 from app.config import CONFIG
 
+SUCCESS_LABEL_SELECTOR = 'label[for="select-placeholder"]'
+
 class KidumSession:
     """
-    A minimal, stateful Playwright session (sync API) that stays open after login.
+    Minimal sync Playwright session that stays open after login.
     """
-
     def __init__(self, headless: Optional[bool] = None):
         self._pw = None
         self._browser = None
         self._page = None
         self._headless = CONFIG.headless if headless is None else headless
+        self._display_name: Optional[str] = None
 
     # ---------- lifecycle ----------
     def _ensure_started(self):
@@ -21,7 +23,6 @@ class KidumSession:
         self._pw = sync_playwright().start()
         self._browser = self._pw.chromium.launch(headless=self._headless)
         self._page = self._browser.new_page()
-        # Reasonable default timeouts
         self._page.set_default_timeout(15000)
 
     def close(self):
@@ -38,22 +39,17 @@ class KidumSession:
     # ---------- actions ----------
     def login(self, username: str, password: str) -> bool:
         """
-        Logs into https://kidum-me.com/ using the selectors you provided:
-          - username textbox (role): 'שם משתמש'
-          - password textbox (role): 'סיסמה'
-          - submit button (role): 'התחברות למערכת'
-
-        Heuristic success check:
-          - After clicking submit, wait for network idle; if the login button and both inputs
-            are NOT visible anymore, we consider it a success.
+        Fills:
+          - username textbox (role name: 'שם משתמש')
+          - password textbox (role name: 'סיסמה')
+          - submit button (role name: 'התחברות למערכת')
+        Success = SUCCESS_LABEL_SELECTOR exists and its text is non-empty.
         """
         self._ensure_started()
         page = self._page
 
-        # Open homepage
         page.goto(CONFIG.base_url, wait_until="domcontentloaded")
 
-        # Fill credentials (roles and accessible names from your codegen)
         user_tb = page.get_by_role("textbox", name="שם משתמש")
         pass_tb = page.get_by_role("textbox", name="סיסמה")
         submit_btn = page.get_by_role("button", name="התחברות למערכת")
@@ -64,33 +60,37 @@ class KidumSession:
         pass_tb.fill(password)
         submit_btn.click()
 
-        # Wait for network quietness after submit
+        # Wait for network calm a bit (non-fatal if it times out)
         try:
             page.wait_for_load_state("networkidle", timeout=15000)
         except PWTimeoutError:
-            # continue to heuristic checks
             pass
 
-        # Heuristic: if login controls are still visible, likely failed
+        # Wait until the success label has non-empty trimmed text
         try:
-            still_has_login_controls = (
-                submit_btn.is_visible()
-                and user_tb.is_visible()
-                and pass_tb.is_visible()
+            page.wait_for_function(
+                """(selector) => {
+                    const el = document.querySelector(selector);
+                    return !!(el && el.textContent && el.textContent.trim().length > 0);
+                }""",
+                arg=SUCCESS_LABEL_SELECTOR,
+                timeout=15000,
             )
-            if still_has_login_controls:
-                return False
-        except Exception:
-            # If querying those elements fails (detached), it likely navigated away -> success
-            pass
+        except PWTimeoutError:
+            return False
 
-        # If needed, you can add a URL-based guard here once you provide it:
-        #   page.wait_for_url("**/home/**", timeout=10000)
+        # Cache the display name for later use
+        try:
+            self._display_name = page.locator(SUCCESS_LABEL_SELECTOR).inner_text().strip()
+        except Exception:
+            self._display_name = None
 
         return True
 
-    # Keep for future extractors (will use self._page)
     @property
     def page(self):
         self._ensure_started()
         return self._page
+
+    def get_logged_in_display_name(self) -> Optional[str]:
+        return self._display_name

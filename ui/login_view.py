@@ -42,15 +42,16 @@ class LoginWindow(QWidget):
         self.login_btn.setEnabled(False)
 
         try:
-            # For Step 2 we block the UI briefly; Step 3 we'll move this to a background thread.
-            self.session = KidumSession(headless=False)  # show browser while we debug
+            # show browser while we debug; switch to headless via .env later
+            self.session = KidumSession(headless=False)
             ok = self.session.login(username, password)
             if ok:
-                self.status_lbl.setText("Login successful.")
-                QMessageBox.information(self, "Success", "Logged in successfully.")
+                name = self.session.get_logged_in_display_name() or "—"
+                self.status_lbl.setText(f"Login successful. User: {name}")
+                QMessageBox.information(self, "Success", f"Logged in as: {name}")
             else:
                 self.status_lbl.setText("Login failed.")
-                QMessageBox.critical(self, "Login failed", "Invalid credentials or the site rejected the login.")
+                QMessageBox.critical(self, "Login failed", "Invalid credentials or guard not found.")
         except Exception as e:
             self.status_lbl.setText("Error during login.")
             QMessageBox.critical(self, "Error", str(e))
