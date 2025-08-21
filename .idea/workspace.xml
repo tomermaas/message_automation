@@ -1,11 +1,55 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="ChangeListManager">
-    <list default="true" id="ec464c0d-6727-4bf3-b91b-46df9cc456e2" name="Changes" comment="" />
+    <list default="true" id="ec464c0d-6727-4bf3-b91b-46df9cc456e2" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.env" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.env.example" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.github/workflows/build.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/config.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/logging_conf.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/main.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apply_patch.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/automation/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/automation/browser.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/automation/extractors/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/automation/extractors/courses.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/automation/extractors/students.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/build/message_automation.spec" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/sample/.gitkeep" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/logic/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/logic/messages.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/logic/rules.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/logic/templates/student_message.j2" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scripts/postinstall_playwright.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/test_smoke.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ui/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ui/home_view.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ui/login_view.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/message_automation.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/message_automation.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/create_layout.sh" beforeDir="false" afterPath="$PROJECT_DIR$/create_layout.sh" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="ProjectColorInfo"><![CDATA[{
   "associatedIndex": 8
@@ -17,8 +61,21 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "SHELLCHECK.PATH": "C:\\Users\\tomer\\AppData\\Roaming\\JetBrains\\PyCharm2025.2\\plugins\\Shell Script\\linux\\amd64\\shellcheck",
+    "git-widget-placeholder": "master",
     "junie.onboarding.icon.badge.shown": "true",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
     "to.speed.mode.migration.done": "true",
     "vue.rearranger.settings.migration": "true"
   }
@@ -38,6 +95,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1755768052600</updated>
+      <workItem from="1755768053624" duration="2418000" />
     </task>
     <servers />
   </component>
