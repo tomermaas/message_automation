@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Select Class – Message Automation</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 680px; margin: 2rem auto; }
+    select { width: 100%; padding: .5rem; margin: .5rem 0 1rem; }
+    button { padding: .6rem 1rem; }
+    .error { color: #b00020; margin: .5rem 0; }
+  </style>
+</head>
+<body>
+  <h1>Select Class</h1>
+  {% if display_name %}<p>Logged in as: <strong>{{ display_name }}</strong></p>{% endif %}
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+  {% if options|length == 0 %}
+    <p>No classes were found. Try refreshing this page.</p>
+  {% else %}
+  <form method="post" action="/classes/select">
+    <label for="class_label">Class</label>
+    <select id="class_label" name="class_label" required>
+      {% for o in options %}
+        <option value="{{ o.label }}">{{ o.label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Use selected class</button>
+  </form>
+  {% endif %}
+</body>
+</html>

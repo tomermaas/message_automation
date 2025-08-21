@@ -1,37 +1,41 @@
 from __future__ import annotations
-from typing import Optional
+from typing import Optional, List, Dict
 from PySide6.QtCore import QObject, Signal, Slot
-from automation.browser import KidumSession
+from automation.browser_async import AsyncKidumSession
 
 class AutomationWorker(QObject):
     """
-    Lives in its own QThread. Owns the KidumSession so all browser
+    Lives in its own QThread. Owns the AsyncKidumSession so all browser
     actions happen off the UI thread.
     """
-    login_ok = Signal(str)          # display name (may be empty)
-    login_failed = Signal(str)      # human-readable reason
-    fatal_error = Signal(str)       # unexpected exception text
+    login_ok = Signal(str)          # display name
+    login_failed = Signal(str)
+    fatal_error = Signal(str)
+
+    classes_loaded = Signal(object)  # List[Dict[str, str]] -> [{"label": "..."}]
+    classes_failed = Signal(str)
+
+    select_class_ok = Signal(str)    # label selected
+    select_class_failed = Signal(str)
 
     def __init__(self) -> None:
         super().__init__()
-        self.session: Optional[KidumSession] = None
+        self.session: Optional[AsyncKidumSession] = None
 
-    @Slot(str, str, object)  # (username, password, headless_or_None)
+    # ---------- Login ----------
+    @Slot(str, str, object)  # (username, password, headless)
     def do_login(self, username: str, password: str, headless: Optional[bool] = None) -> None:
         try:
-            self.session = KidumSession(headless=headless)  # falls back to CONFIG.headless if None
+            self.session = AsyncKidumSession(headless=headless)
             ok = self.session.login(username, password)
             if not ok:
-                # tidy up if login failed
                 self.session.close()
                 self.session = None
                 self.login_failed.emit("Invalid credentials or success guard not found.")
                 return
-
             name = (self.session.get_logged_in_display_name() or "").strip()
             self.login_ok.emit(name)
         except Exception as e:
-            # if session was partially started, close it
             try:
                 if self.session:
                     self.session.close()
@@ -44,3 +48,29 @@ class AutomationWorker(QObject):
         if self.session:
             self.session.close()
             self.session = None
+
+    # ---------- Classes ----------
+    @Slot()
+    def do_fetch_classes(self) -> None:
+        if not self.session:
+            self.classes_failed.emit("Not logged in.")
+            return
+        try:
+            options = self.session.scrape_class_options()
+            if not options:
+                self.classes_failed.emit("No classes found in the dropdown.")
+                return
+            self.classes_loaded.emit(options)
+        except Exception as e:
+            self.classes_failed.emit(str(e))
+
+    @Slot(str)
+    def do_select_class(self, label: str) -> None:
+        if not self.session:
+            self.select_class_failed.emit("Not logged in.")
+            return
+        try:
+            self.session.select_class_by_label(label)
+            self.select_class_ok.emit(label)
+        except Exception as e:
+            self.select_class_failed.emit(str(e))

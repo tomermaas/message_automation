@@ -1,29 +1,36 @@
 from __future__ import annotations
 import os
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QMessageBox
+from typing import Optional
+
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QMessageBox
+)
 from PySide6.QtCore import Qt, QThread, Signal
+
 from automation.automation_worker import AutomationWorker
+from ui.class_select_view import ClassSelectView
+
 
 def _env_bool(name: str, default: bool) -> bool:
-    val = os.getenv(name)
-    if val is None:
+    v = os.getenv(name)
+    if v is None:
         return default
-    return val.strip().lower() in {"1", "true", "yes", "on"}
+    return v.strip().lower() in {"1", "true", "yes", "on"}
+
 
 class LoginWindow(QWidget):
-    # Emit (username, password, headless_or_None) to run in worker thread
+    # UI -> Worker (queued)
     request_login = Signal(str, str, object)
+    request_close = Signal()
 
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Message Automation")
-        self.setMinimumWidth(420)
+        self.setMinimumWidth(520)
 
-        self.user_edit = QLineEdit()
-        self.user_edit.setPlaceholderText("Username or Email")
-
-        self.pass_edit = QLineEdit()
-        self.pass_edit.setPlaceholderText("Password")
+        # --- login widgets ---
+        self.user_edit = QLineEdit(placeholderText="Username or Email")
+        self.pass_edit = QLineEdit(placeholderText="Password")
         self.pass_edit.setEchoMode(QLineEdit.Password)
 
         self.login_btn = QPushButton("Sign in")
@@ -32,49 +39,52 @@ class LoginWindow(QWidget):
         self.status_lbl = QLabel("Enter credentials, then click Sign in.")
         self.status_lbl.setAlignment(Qt.AlignLeft)
 
-        layout = QVBoxLayout(self)
-        layout.addWidget(self.user_edit)
-        layout.addWidget(self.pass_edit)
-        layout.addWidget(self.login_btn)
-        layout.addWidget(self.status_lbl)
+        # root layout (we will swap its contents after login)
+        self._root = QVBoxLayout(self)
+        self._root.addWidget(self.user_edit)
+        self._root.addWidget(self.pass_edit)
+        self._root.addWidget(self.login_btn)
+        self._root.addWidget(self.status_lbl)
 
-        # Background automation thread & worker
+        # background automation thread/worker
         self._thread: QThread | None = None
         self._worker: AutomationWorker | None = None
+        self._class_view: Optional[ClassSelectView] = None
 
         self._ensure_thread()
 
-    # ---------- life-cycle ----------
+    # ---------- thread lifecycle ----------
     def _ensure_thread(self):
         if self._thread is not None:
             return
-        self._thread = QThread(self)
+        # No parent: thread remains alive until we quit it
+        self._thread = QThread()
         self._worker = AutomationWorker()
         self._worker.moveToThread(self._thread)
 
-        # Worker -> UI signals
+        # Worker -> UI
         self._worker.login_ok.connect(self._on_login_ok)
         self._worker.login_failed.connect(self._on_login_failed)
         self._worker.fatal_error.connect(self._on_login_error)
 
-        # UI -> Worker signal (queued to worker thread)
-        # Qt.QueuedConnection is implicit across threads, but being explicit is fine.
+        # UI -> Worker (queued)
         self.request_login.connect(self._worker.do_login, Qt.QueuedConnection)
+        self.request_close.connect(self._worker.close, Qt.QueuedConnection)
 
         self._thread.finished.connect(self._worker.deleteLater)
         self._thread.start()
 
     def closeEvent(self, event):
+        # Always shut down background thread when the main window closes
         try:
-            if self._worker:
-                self._worker.close()
-            if self._thread:
+            if self._worker and self._thread:
+                self.request_close.emit()
                 self._thread.quit()
                 self._thread.wait(3000)
         finally:
             super().closeEvent(event)
 
-    # ---------- actions ----------
+    # ---------- login flow ----------
     def _start_login_bg(self):
         username = self.user_edit.text().strip()
         password = self.pass_edit.text()
@@ -86,14 +96,26 @@ class LoginWindow(QWidget):
         self.login_btn.setEnabled(False)
 
         headless = _env_bool("PLAYWRIGHT_HEADLESS", True)
-        # Queue the job on the worker thread (non-blocking)
         self.request_login.emit(username, password, headless)
 
-    # ---------- results ----------
     def _on_login_ok(self, display_name: str):
         self.status_lbl.setText(f"Login successful. User: {display_name or '—'}")
         QMessageBox.information(self, "Success", f"Logged in as: {display_name or '—'}")
         self.login_btn.setEnabled(True)
+
+        # ----- SWAP CONTENT IN THE SAME WINDOW -----
+        # Clear current login widgets from the root layout
+        for i in reversed(range(self._root.count())):
+            item = self._root.itemAt(i)
+            w = item.widget()
+            if w is not None:
+                w.setParent(None)
+            self._root.removeItem(item)
+
+        # Embed ClassSelectView inside this same window
+        self._class_view = ClassSelectView(worker=self._worker, thread=self._thread)  # type: ignore[arg-type]
+        self._root.addWidget(self._class_view)
+        self.setWindowTitle("Select Class – Message Automation")
 
     def _on_login_failed(self, reason: str):
         self.status_lbl.setText("Login failed.")

@@ -4,8 +4,19 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ec464c0d-6727-4bf3-b91b-46df9cc456e2" name="Changes" comment="add a success guard: after clicking “התחברות למערכת”, we wait until label[for=&quot;select-placeholder&quot;] has non-empty text and then treat login as successful.">
-      <change afterPath="$PROJECT_DIR$/automation/automation_worker.py" afterDir="false" />
+    <list default="true" id="ec464c0d-6727-4bf3-b91b-46df9cc456e2" name="Changes" comment=" Non-blocking login">
+      <change afterPath="$PROJECT_DIR$/app/webapp.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/automation/browser_async.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scripts/smoke_playwright.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ui/class_select_view.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ui/web_templates/classes.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ui/web_templates/login.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ui/web_templates/selected.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/automation/automation_worker.py" beforeDir="false" afterPath="$PROJECT_DIR$/automation/automation_worker.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/automation/browser.py" beforeDir="false" afterPath="$PROJECT_DIR$/automation/browser.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ui/login_view.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/login_view.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -79,7 +90,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1755768052600</updated>
-      <workItem from="1755768053624" duration="5173000" />
+      <workItem from="1755768053624" duration="13438000" />
     </task>
     <task id="LOCAL-00001" summary="init project struct">
       <option name="closed" value="true" />
@@ -113,7 +124,15 @@
       <option name="project" value="LOCAL" />
       <updated>1755772554728</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary=" Non-blocking login">
+      <option name="closed" value="true" />
+      <created>1755773273876</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1755773273876</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -124,6 +143,7 @@
     <MESSAGE value="first step login screen opens" />
     <MESSAGE value="login screen open and with correct and connects to kiudm-me" />
     <MESSAGE value="add a success guard: after clicking “התחברות למערכת”, we wait until label[for=&quot;select-placeholder&quot;] has non-empty text and then treat login as successful." />
-    <option name="LAST_COMMIT_MESSAGE" value="add a success guard: after clicking “התחברות למערכת”, we wait until label[for=&quot;select-placeholder&quot;] has non-empty text and then treat login as successful." />
+    <MESSAGE value=" Non-blocking login" />
+    <option name="LAST_COMMIT_MESSAGE" value=" Non-blocking login" />
   </component>
 </project>
