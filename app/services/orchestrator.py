@@ -45,3 +45,25 @@ class SyncOrchestrator:
 
     def list_messages(self, course_id: int):
         return self.messages.list_all(course_id)
+
+    async def run(self, session, course_id: int) -> Dict:
+        """Backward compatible wrapper around :func:`sync_all`.
+
+        The web application historically expected a ``run`` coroutine on the
+        orchestrator instance.  The implementation was later renamed to
+        ``sync_all`` but the debug endpoint still imports and calls ``run``.
+        Providing this thin wrapper preserves the previous API and simply
+        forwards the call to :func:`sync_all`.
+        """
+        return await self.sync_all(session, course_id)
+
+
+def create_orchestrator() -> SyncOrchestrator:
+    """Factory used by the web layer to lazily construct a synchronizer.
+
+    The factory mirrors the global ``SYNC`` instance in ``app.webapp`` and is
+    needed by the debug endpoint which imports ``create_orchestrator``.
+    """
+    from app.config import CONFIG
+
+    return SyncOrchestrator(Path(CONFIG.data_root))
