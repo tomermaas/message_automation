@@ -12,19 +12,6 @@
   }
   * { box-sizing:border-box; font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI","Noto Sans","Helvetica Neue",Arial,"Apple Color Emoji","Segoe UI Emoji"; }
   body { margin:0; background:var(--bg); color:var(--text); }
-  .topbar {
-    background:#fff; border-bottom:1px solid var(--border);
-    display:flex; align-items:center; gap:40px; padding:0 24px;
-  }
-  .brand { font-weight:700; font-size:24px; color:var(--accent); }
-  .main-nav { display:flex; gap:24px; flex:1; }
-  .main-nav a {
-    color:var(--text); text-decoration:none; padding:20px 0;
-    border-bottom:2px solid transparent;
-  }
-  .main-nav a.active {
-    color:var(--accent); border-color:var(--accent);
-  }
   .wrap { max-width:900px; margin:40px auto; padding:0 16px; }
   .card { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:20px; box-shadow:0 2px 4px rgba(0,0,0,.05); }
   h1 { font-size:24px; margin:0 0 16px; }
@@ -174,38 +161,28 @@
         }
       }
 
-      return (
-        <div>
-          <header className="topbar">
-            <div className="brand">קידום</div>
-            <nav className="main-nav">
-              <a href="#">עמוד הבית</a>
-              <a href="#">ניהול קורסים</a>
-              <a href="#" className="active">ניהול קופה</a>
-              <a href="#">מגזין</a>
-              <a href="#">דוחות</a>
-            </nav>
-          </header>
-          <div className="wrap">
-            <div className="card">
-              <h1>🔐 כניסה למערכת אוטומציה</h1>
-            <div className="grid">
-              <div className="row">
-                <div>
-                  <label>שם משתמש</label>
-                  <input value={username} onChange={e => setUsername(e.target.value)} type="text" autoComplete="username" />
-                </div>
-                <div>
-                  <label>סיסמה</label>
-                  <input value={password} onChange={e => setPassword(e.target.value)} type="password" autoComplete="current-password" />
-                </div>
-              </div>
-              <div style={{display:'flex', gap:'12px', alignItems:'center', flexWrap:'wrap'}}>
-                <button onClick={handleLogin} className="btn">התחברות</button>
-                <button onClick={handleLogout} className="btn ghost">התנתקות</button>
-                <span className="muted">{loginMsg}</span>
-              </div>
-            </div>
+        return (
+          <div>
+              <div className="wrap">
+                <div className="card">
+                  <h1>🔐 כניסה למערכת אוטומציה</h1>
+                  <div className="grid">
+                    <div className="row">
+                      <div>
+                        <label>שם משתמש</label>
+                        <input value={username} onChange={e => setUsername(e.target.value)} type="text" autoComplete="username" />
+                      </div>
+                      <div>
+                        <label>סיסמה</label>
+                        <input value={password} onChange={e => setPassword(e.target.value)} type="password" autoComplete="current-password" />
+                      </div>
+                    </div>
+                    <div style={{display:'flex', gap:'12px', alignItems:'center', flexWrap:'wrap'}}>
+                      <button onClick={handleLogin} className="btn">התחברות</button>
+                      <button onClick={handleLogout} className="btn ghost">התנתקות</button>
+                      <span className="muted">{loginMsg}</span>
+                    </div>
+                  </div>
 
             <hr className="mt16" />
 
