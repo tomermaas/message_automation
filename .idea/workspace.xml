@@ -4,11 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ec464c0d-6727-4bf3-b91b-46df9cc456e2" name="Changes" comment="">
+    <list default="true" id="ec464c0d-6727-4bf3-b91b-46df9cc456e2" name="Changes" comment="deleted .env.example">
       <change beforePath="$PROJECT_DIR$/.env" beforeDir="false" afterPath="$PROJECT_DIR$/.env" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.env.example" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apply_patch.sh" beforeDir="false" afterPath="$PROJECT_DIR$/apply_patch.sh" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -52,6 +50,7 @@
   "keyToString": {
     "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python tests.Python tests in test_live_db_comparison.py.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
@@ -70,6 +69,29 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
+  <component name="RunManager">
+    <configuration name="Python tests in test_live_db_comparison.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+      <module name="message_automation" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;$PROJECT_DIR$/tests/test_live_db_comparison.py&quot;" />
+      <option name="_new_targetType" value="&quot;PATH&quot;" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python tests.Python tests in test_live_db_comparison.py" />
+      </list>
+    </recent_temporary>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -86,7 +108,7 @@
       <option name="presentableId" value="Default" />
       <updated>1755768052600</updated>
       <workItem from="1755768053624" duration="27085000" />
-      <workItem from="1756024469541" duration="6800000" />
+      <workItem from="1756024469541" duration="7787000" />
     </task>
     <task id="LOCAL-00001" summary="init project struct">
       <option name="closed" value="true" />
@@ -184,7 +206,15 @@
       <option name="project" value="LOCAL" />
       <updated>1755798172477</updated>
     </task>
-    <option name="localTasksCounter" value="13" />
+    <task id="LOCAL-00013" summary="deleted .env.example">
+      <option name="closed" value="true" />
+      <created>1756032977863</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1756032977863</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -203,6 +233,7 @@
     <MESSAGE value="added distance from target score database" />
     <MESSAGE value="added sync logic to disntance db" />
     <MESSAGE value="added meesgaes DB" />
-    <option name="LAST_COMMIT_MESSAGE" value="added meesgaes DB" />
+    <MESSAGE value="deleted .env.example" />
+    <option name="LAST_COMMIT_MESSAGE" value="deleted .env.example" />
   </component>
 </project>
