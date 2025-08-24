@@ -24,5 +24,5 @@ def test_sync_all(tmp_path, monkeypatch):
     assert result["messages_emitted"] == 2
 
     messages = orchestrator.list_messages(1)
-    assert len(messages) == 2
-    assert all(m["created_at"] == 111 for m in messages)
+    assert messages["total"] == 2
+    assert all(m["created_at"] == 111 for m in messages["rows"])
