@@ -81,6 +81,12 @@
       const [loginMsg, setLoginMsg] = useState('');
       const [statusText, setStatusText] = useState('לא מחובר');
       const [courseMsg, setCourseMsg] = useState('');
+      const [messageTypes, setMessageTypes] = useState([]);
+      const [filterType, setFilterType] = useState('all');
+      const [messages, setMessages] = useState([]);
+      const [messagesMsg, setMessagesMsg] = useState('');
+      const [editingId, setEditingId] = useState(null);
+      const [editingText, setEditingText] = useState('');
 
       useEffect(() => {
         refreshStatusAndMaybeLoad();
@@ -107,11 +113,71 @@
             setCourses(res.data || []);
             setSelectedId(res.selected_id ?? '');
             setCourseMsg(`נמצאו ${res.data?.length ?? 0} קורסים.`);
+            if (res.selected_id) {
+              await loadMessageTypes(res.selected_id);
+              await loadMessages(res.selected_id, filterType);
+            }
           } else {
             setCourseMsg('שגיאה בטעינת קורסים.');
           }
         } catch (e) {
           setCourseMsg('שגיאה: ' + (e.message || e));
+        }
+      }
+
+      async function loadMessageTypes(cid) {
+        try {
+          const res = await $get(`/message_types?course_id=${cid}`);
+          if (res && res.ok) setMessageTypes(res.types || []);
+        } catch (e) {
+          /* ignore */
+        }
+      }
+
+      async function loadMessages(cid, type) {
+        setMessagesMsg('טוען הודעות...');
+        try {
+          const res = await $get(`/messages?course_id=${cid}&type=${type}`);
+          if (res && res.ok) {
+            setMessages(res.data || []);
+            setMessagesMsg('');
+            if (res.types_present) setMessageTypes(res.types_present);
+          } else {
+            setMessagesMsg('שגיאה בטעינת הודעות');
+          }
+        } catch (e) {
+          setMessagesMsg('שגיאה: ' + (e.message || e));
+        }
+      }
+
+      function handleTypeChange(e) {
+        const t = e.target.value;
+        setFilterType(t);
+        if (selectedId) loadMessages(selectedId, t);
+      }
+
+      function startEdit(id, text) {
+        setEditingId(id);
+        setEditingText(text);
+      }
+
+      function cancelEdit() {
+        setEditingId(null);
+        setEditingText('');
+      }
+
+      async function saveEdit(id) {
+        try {
+          await fetch(`/messages/${id}`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: editingText })
+          });
+          setMessages(m => m.map(row => row.id === id ? { ...row, message: editingText } : row));
+          cancelEdit();
+        } catch (e) {
+          alert('שגיאה: ' + (e.message || e));
         }
       }
 
@@ -156,6 +222,8 @@
         try {
           await $post('/select_course', { course_id: cid });
           setCourseMsg('נשמר ✔');
+          await loadMessageTypes(cid);
+          await loadMessages(cid, filterType);
         } catch (e) {
           setCourseMsg('שגיאה: ' + (e.message || e));
         }
@@ -219,6 +287,71 @@
                       • הבחירה נשמרת בצד השרת עד לבחירה חדשה.
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {loggedIn && selectedId && (
+              <div className="mt16">
+                <h3>הודעות</h3>
+                <div className="row">
+                  <div>
+                    <label>סוג הודעות</label>
+                    <select value={filterType} onChange={handleTypeChange}>
+                      <option value="all">הכל</option>
+                      <option value="distance">מרחק מציון היעד</option>
+                      {messageTypes.filter(t => t !== 'distance').map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>&nbsp;</label>
+                    <div className="mt8" style={{display:'flex', gap:'8px', alignItems:'center', flexWrap:'wrap'}}>
+                      <button onClick={() => loadMessages(selectedId, filterType)} className="btn secondary">רענן הודעות</button>
+                      <small className="muted">{messagesMsg}</small>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt16" style={{overflowX:'auto'}}>
+                  <table style={{width:'100%', borderCollapse:'collapse'}}>
+                    <thead>
+                      <tr>
+                        <th style={{textAlign:'right'}}>סוג</th>
+                        <th style={{textAlign:'right'}}>שם תלמיד</th>
+                        <th style={{textAlign:'right'}}>נוצר</th>
+                        <th style={{textAlign:'right'}}>הודעה</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {messages.map(m => (
+                        <tr key={m.id}>
+                          <td>{m.db_type}</td>
+                          <td>{m.student_name}</td>
+                          <td>{new Date(m.created_at * 1000).toLocaleString('he-IL')}</td>
+                          <td>
+                            {editingId === m.id ? (
+                              <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
+                                <input value={editingText} onChange={e => setEditingText(e.target.value)} />
+                                <button onClick={() => saveEdit(m.id)} className="btn secondary">שמור</button>
+                                <button onClick={cancelEdit} className="btn ghost">ביטול</button>
+                              </div>
+                            ) : (
+                              <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
+                                <span>{m.message}</span>
+                                <button onClick={() => startEdit(m.id, m.message)} className="btn ghost">ערוך</button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {!messages.length && (
+                        <tr>
+                          <td colSpan="4" style={{textAlign:'center'}} className="muted">אין הודעות עבור הקורס הזה</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}

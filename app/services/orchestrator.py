@@ -46,8 +46,14 @@ class SyncOrchestrator:
             "messages_emitted": len(dist["changes"]),
         }
 
-    def list_messages(self, course_id: int):
-        return self.messages.list_all(course_id)
+    def list_messages(self, course_id: int, msg_type: str | None = None):
+        return self.messages.list_all(course_id, msg_type)
+
+    def list_message_types(self, course_id: int):
+        return self.messages.list_types(course_id)
+
+    def update_message(self, course_id: int, msg_id: int, message: str):
+        return self.messages.update_message(course_id, msg_id, message)
 
     async def run(self, session, course_id: int) -> Dict:
         """Backward compatible wrapper around :func:`sync_all`.

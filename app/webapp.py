@@ -54,6 +54,10 @@ class LoginBody(BaseModel):
     username: str
     password: str
 
+
+class PatchMessageBody(BaseModel):
+    message: str
+
 @app.on_event("shutdown")
 async def _shutdown():
     s = _get_session(False)
@@ -175,6 +179,34 @@ async def select_course(body: SelectCourseBody):
     summary = await SYNC.sync_all(s, body.course_id)
 
     return {"ok": True, "selected_id": s.get_selected_course_id(), "summary": summary}
+
+
+@app.get("/messages")
+async def get_messages(course_id: int, type: str = "all"):
+    await _ensure_logged_in()
+    rows = SYNC.list_messages(course_id, None if type == "all" else type)
+    types_present = sorted({r["db_type"] for r in rows})
+    return {"ok": True, "data": rows, "count": len(rows), "types_present": types_present}
+
+
+@app.get("/message_types")
+async def get_message_types(course_id: int):
+    await _ensure_logged_in()
+    types = SYNC.list_message_types(course_id)
+    return {"ok": True, "types": types}
+
+
+@app.patch("/messages/{msg_id}")
+async def patch_message(msg_id: int, body: PatchMessageBody):
+    s = await _ensure_logged_in()
+    if not hasattr(s, "get_selected_course_id") or not s.get_selected_course_id():
+        raise HTTPException(status_code=400, detail="No course selected")
+    course_id = s.get_selected_course_id()
+    try:
+        row = SYNC.update_message(course_id, msg_id, body.message)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Message not found")
+    return {"ok": True, "data": row}
 
 
 @app.get("/debug/distance", response_class=HTMLResponse)
