@@ -2,6 +2,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
+from app.config import CONFIG
 
 class DistanceSyncer:
     """
@@ -13,7 +14,8 @@ class DistanceSyncer:
     def _db_path(self, course_id: int) -> Path:
         p = self.root / "courses" / str(course_id)
         p.mkdir(parents=True, exist_ok=True)
-        return p / "distance.db"
+        fname = f"distance_{CONFIG.env}.db" if CONFIG.env else "distance.db"
+        return p / fname
 
     def _conn(self, course_id: int):
         path = self._db_path(course_id)

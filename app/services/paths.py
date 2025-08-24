@@ -12,7 +12,9 @@ def course_dir(course_id: int) -> Path:
     return p
 
 def distance_db_path(course_id: int) -> Path:
-    return course_dir(course_id) / "distance.db"
+    fname = f"distance_{CONFIG.env}.db" if CONFIG.env else "distance.db"
+    return course_dir(course_id) / fname
 
 def messages_db_path(course_id: int) -> Path:
-    return course_dir(course_id) / "messages.db"
+    fname = f"messages_{CONFIG.env}.db" if CONFIG.env else "messages.db"
+    return course_dir(course_id) / fname

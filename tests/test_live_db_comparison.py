@@ -6,6 +6,7 @@ pytest.importorskip("playwright.async_api")
 
 from automation.browser_async import AsyncKidumSession
 from app.services.distance_syncer import DistanceSyncer
+from app.config import CONFIG
 
 
 @pytest.mark.asyncio
@@ -31,11 +32,12 @@ async def test_distance_db_matches_remote(tmp_path):
             pytest.skip("course id missing in API data")
         course_id = int(course_id)
 
+        CONFIG.env = "test"
         syncer = DistanceSyncer(tmp_path)
         await syncer.sync_and_collect(session, course_id)
         remote_rows = await session.api_get_distance_details(course_id)
 
-        db_path = tmp_path / "courses" / str(course_id) / "distance.db"
+        db_path = tmp_path / "courses" / str(course_id) / f"distance_{CONFIG.env}.db"
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         rows = conn.execute("SELECT * FROM distance").fetchall()
