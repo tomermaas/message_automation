@@ -56,7 +56,9 @@ class LoginBody(BaseModel):
 
 
 class PatchMessageBody(BaseModel):
-    message: str
+    content_html: str
+    content_json: Dict
+    editor_version: str | None = None
 
 @app.on_event("shutdown")
 async def _shutdown():
@@ -182,11 +184,29 @@ async def select_course(body: SelectCourseBody):
 
 
 @app.get("/messages")
-async def get_messages(course_id: int, type: str = "all"):
+async def get_messages(
+    course_id: int,
+    type: str = "all",
+    search: str | None = None,
+    page: int = 1,
+    limit: int = 30,
+):
     await _ensure_logged_in()
-    rows = SYNC.list_messages(course_id, None if type == "all" else type)
-    types_present = sorted({r["db_type"] for r in rows})
-    return {"ok": True, "data": rows, "count": len(rows), "types_present": types_present}
+    res = SYNC.list_messages(
+        course_id,
+        None if type == "all" else type,
+        search=search,
+        page=page,
+        limit=limit,
+    )
+    return {
+        "ok": True,
+        "data": res["rows"],
+        "page": page,
+        "limit": limit,
+        "total": res["total"],
+        "types_present": res["types_present"],
+    }
 
 
 @app.get("/message_types")
@@ -202,11 +222,53 @@ async def patch_message(msg_id: int, body: PatchMessageBody):
     if not hasattr(s, "get_selected_course_id") or not s.get_selected_course_id():
         raise HTTPException(status_code=400, detail="No course selected")
     course_id = s.get_selected_course_id()
+
+    # Sanitize HTML
+    import bleach
+
+    allowed_tags = [
+        "p",
+        "h1",
+        "h2",
+        "h3",
+        "strong",
+        "em",
+        "b",
+        "i",
+        "u",
+        "a",
+        "ul",
+        "ol",
+        "li",
+        "blockquote",
+        "span",
+        "br",
+    ]
+    allowed_attrs = {"a": ["href"], "span": ["style"], "p": ["style"], "h1": ["style"], "h2": ["style"], "h3": ["style"]}
+    clean_html = bleach.clean(
+        body.content_html,
+        tags=allowed_tags,
+        attributes=allowed_attrs,
+        strip=True,
+    )
+
     try:
-        row = SYNC.update_message(course_id, msg_id, body.message)
+        row = SYNC.update_message(
+            course_id,
+            msg_id,
+            content_html=clean_html,
+            content_json=body.content_json,
+        )
     except KeyError:
         raise HTTPException(status_code=404, detail="Message not found")
     return {"ok": True, "data": row}
+
+
+@app.get("/messages/{msg_id}/history")
+async def message_history(msg_id: int):
+    await _ensure_logged_in()
+    # History tracking not yet implemented; return empty list for API compatibility
+    return {"ok": True, "history": []}
 
 
 @app.get("/debug/distance", response_class=HTMLResponse)

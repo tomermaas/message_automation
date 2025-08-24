@@ -10,3 +10,4 @@ uvicorn[standard]>=0.30
 python-multipart>=0.0.9
 httpx>=0.27
 pydantic
+bleach>=6.1

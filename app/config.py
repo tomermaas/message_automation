@@ -22,7 +22,8 @@ class _Config:
     headless: bool = os.getenv("HEADLESS", "true").lower() in ("1", "true", "yes")
     cors_origins: List[str] = field(
         default_factory=lambda: os.getenv(
-            "CORS_ORIGINS", "http://127.0.0.1:8765,http://localhost:8765"
+            "CORS_ORIGINS",
+            "http://127.0.0.1:8765,http://localhost:8765,http://127.0.0.1:5173,http://localhost:5173",
         ).split(",")
     )
     data_root: str = os.getenv("DATA_ROOT", "data")

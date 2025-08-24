@@ -152,3 +152,38 @@ class DistanceSyncer:
             "updated": updated,
             "changes": changes,  # list of tuples
         }
+
+    # ------------------------------------------------------------------
+    def get_student(self, course_id: int, student_id: str) -> Optional[Dict]:
+        """Return details for ``student_id`` from the distance database."""
+
+        self.ensure_schema(course_id)
+        with self._conn(course_id) as conn:
+            row = conn.execute(
+                """
+                SELECT student_name, last_exam_date, exam_name, target_score,
+                       total_score, gap, gap_change
+                  FROM distance WHERE student_id=?
+                """,
+                (student_id,),
+            ).fetchone()
+        if not row:
+            return None
+        (
+            sname,
+            last_exam_date,
+            exam_name,
+            target_score,
+            total_score,
+            gap,
+            gap_change,
+        ) = row
+        return {
+            "student_name": sname,
+            "last_exam_date": last_exam_date,
+            "exam_name": exam_name,
+            "target_score": target_score,
+            "total_score": total_score,
+            "gap": gap,
+            "gap_change": gap_change,
+        }

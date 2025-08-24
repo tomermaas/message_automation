@@ -32,12 +32,21 @@ class SyncOrchestrator:
                     "new_gap": new_gap,
                 }
             )
+
+            meta = self.distance.get_student(course_id, sid) or {}
             self.messages.upsert_message(
                 course_id=course_id,
                 db_type="distance",
                 student_id=sid,
                 student_name=sname,
-                message=text,
+                content_html=f"<p>{text}</p>",
+                content_json={
+                    "type": "doc",
+                    "content": [
+                        {"type": "paragraph", "content": [{"type": "text", "text": text}]}
+                    ],
+                },
+                meta=meta,
                 created_at=now,
             )
 
@@ -46,14 +55,33 @@ class SyncOrchestrator:
             "messages_emitted": len(dist["changes"]),
         }
 
-    def list_messages(self, course_id: int, msg_type: str | None = None):
-        return self.messages.list_all(course_id, msg_type)
+    def list_messages(
+        self,
+        course_id: int,
+        msg_type: str | None = None,
+        *,
+        search: str | None = None,
+        page: int = 1,
+        limit: int = 30,
+    ) -> Dict:
+        return self.messages.list_all(
+            course_id, msg_type=msg_type, search=search, page=page, limit=limit
+        )
 
     def list_message_types(self, course_id: int):
         return self.messages.list_types(course_id)
 
-    def update_message(self, course_id: int, msg_id: int, message: str):
-        return self.messages.update_message(course_id, msg_id, message)
+    def update_message(
+        self,
+        course_id: int,
+        msg_id: int,
+        *,
+        content_html: str,
+        content_json: Dict,
+    ):
+        return self.messages.update_message(
+            course_id, msg_id, content_html=content_html, content_json=content_json
+        )
 
     async def run(self, session, course_id: int) -> Dict:
         """Backward compatible wrapper around :func:`sync_all`.
