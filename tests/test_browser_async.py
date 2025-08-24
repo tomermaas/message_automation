@@ -1,4 +1,5 @@
 import base64
+import os
 import pytest
 
 pytest.importorskip("playwright.async_api")
@@ -16,3 +17,18 @@ def test_jwt_helpers():
     assert session._decode_jwt_sub(token) == "123"
 
     assert not AsyncKidumSession._looks_like_jwt("not a token")
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(
+    not os.getenv("RUN_LIVE_BROWSER_TEST"),
+    reason="requires network access and real credentials",
+)
+async def test_login_and_fetch_courses():
+    session = AsyncKidumSession(headless=True)
+    try:
+        assert await session.login("311550651", "311550651")
+        courses = await session.api_get_courses()
+        assert isinstance(courses, list)
+    finally:
+        await session.close()
