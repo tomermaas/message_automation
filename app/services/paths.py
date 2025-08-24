@@ -12,7 +12,7 @@ def course_dir(course_id: int) -> Path:
     return p
 
 def distance_db_path(course_id: int) -> Path:
-    return course_dir(course_id) / "distance.sqlite"
+    return course_dir(course_id) / "distance.db"
 
 def messages_db_path(course_id: int) -> Path:
-    return course_dir(course_id) / "messages.sqlite"
+    return course_dir(course_id) / "messages.db"
