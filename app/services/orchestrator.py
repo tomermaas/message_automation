@@ -4,6 +4,7 @@ from typing import Dict
 
 from .distance_syncer import DistanceSyncer
 from .messages_store import MessagesStore
+from logic.messages import build_student_message
 import time
 
 class SyncOrchestrator:
@@ -22,13 +23,14 @@ class SyncOrchestrator:
         # Emit/update messages
         now = int(time.time())
         for (kind, sname, old_gap, new_gap, sid) in dist["changes"]:
-            if kind == "inserted":
-                text = f"נוצר רישום פער מטרה ראשוני עבור {sname}: {new_gap}."
-            else:
-                if old_gap is None:
-                    text = f"עדכון פער מטרה עבור {sname}: {new_gap}."
-                else:
-                    text = f"עדכון פער מטרה עבור {sname}: {old_gap} → {new_gap}."
+            text = build_student_message(
+                {
+                    "kind": kind,
+                    "student_name": sname,
+                    "old_gap": old_gap,
+                    "new_gap": new_gap,
+                }
+            )
             self.messages.upsert_message(
                 course_id=course_id,
                 db_type="distance",
