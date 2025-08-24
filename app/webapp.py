@@ -104,32 +104,38 @@ async def login(body: LoginBody):
     ``logged_in=True`` even though no valid session existed, causing the
     frontend to redirect straight to the messages page.
 
-    To avoid this, ensure we clean up the session on failure and reset the
-    global reference before returning an error.  A regression test exercises
-    this path to prevent future regressions.
+
+    The fix is to only attach the session to the global reference after a
+    successful login.  If authentication fails we close the temporary session
+    and raise an error so ``/status`` continues to report
+    ``logged_in=False``.  A regression test exercises this path to prevent
+    future regressions.
     """
 
     global _session
 
-    s = _get_session(True)
+    # Always start with a fresh session instance. Only persist it globally
+    # once the credentials have been verified.
+    if _session:
+        await _session.close()
+        _session = None
+
+    tmp = AsyncKidumSession()
     ok = False
     try:
-        ok = await s.login(body.username, body.password)
+        ok = await tmp.login(body.username, body.password)
     except Exception:
-        # Treat any exception during login as a failure and clean up below.
         ok = False
 
     if not ok:
-        # Login failed; close the session and clear the global reference so
-        # that ``/status`` correctly reports ``logged_in=False``.
-        await s.close()
-        _session = None
+        await tmp.close()
         raise HTTPException(status_code=401, detail="Login failed.")
 
+    _session = tmp
     return {
         "ok": True,
-        "display_name": s.get_logged_in_display_name(),
-        "teacher_id": s.get_teacher_id(),
+        "display_name": _session.get_logged_in_display_name(),
+        "teacher_id": _session.get_teacher_id(),
     }
 
 @app.post("/logout")
