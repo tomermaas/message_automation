@@ -243,11 +243,11 @@ class AsyncKidumSession:
         if not self._jwt or not self._teacher_id:
             return []
 
-        url = f"https://lmsapi.kidum-me.com/api/get-courses?teacher_id={self._teacher_id}"
+        url = f"{CONFIG.api_base_url}/api/get-courses?teacher_id={self._teacher_id}"
         headers = {
             "Authorization": f"Bearer {self._jwt}",
             "Accept": "application/json",
-            "User-Agent": "kidum-automation/1.0",
+            "User-Agent": "message-automation/1.0",
         }
         timeout = httpx.Timeout(20.0, read=20.0, connect=10.0)
 
@@ -378,7 +378,7 @@ class AsyncKidumSession:
         if not self._jwt or not self._teacher_id:
             raise RuntimeError("Not logged in (no JWT/teacher_id).")
 
-        url = f"https://lmsapi.kidum-me.com/api/get-distance-details?teacher_id={self._teacher_id}&course_id={course_id}"
+        url = f"{CONFIG.api_base_url}/api/get-distance-details?teacher_id={self._teacher_id}&course_id={course_id}"
         headers = {"Authorization": f"Bearer {self._jwt}"}
         async with httpx.AsyncClient(timeout=30.0) as client:
             r = await client.get(url, headers=headers)

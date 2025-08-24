@@ -3,6 +3,7 @@ from typing import List, Dict
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QComboBox, QMessageBox, QHBoxLayout
 from PySide6.QtCore import Qt, Signal, QThread
 from automation.automation_worker import AutomationWorker
+from app.config import CONFIG
 
 class ClassSelectView(QWidget):
     # UI -> Worker (queued)
@@ -19,7 +20,9 @@ class ClassSelectView(QWidget):
         self.thread = thread
         self.options: List[Dict[str, str]] = []
 
-        self.info_lbl = QLabel("Load classes from kidum-me and choose one:")
+        self.info_lbl = QLabel(
+            f"Load classes from {CONFIG.base_url} and choose one:"
+        )
         self.refresh_btn = QPushButton("Load classes")
         self.refresh_btn.clicked.connect(self._on_refresh)
 

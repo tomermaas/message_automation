@@ -18,7 +18,8 @@ fi
 # 2) Ensure .env.example
 if [[ ! -f ".env.example" ]]; then
   cat > .env.example << 'EOF'
-KIDUM_BASE_URL=https://kidum-me.com
+LMS_BASE_URL=https://kidum-me.com
+LMS_API_BASE_URL=https://lmsapi.kidum-me.com
 PLAYWRIGHT_HEADLESS=true
 EOF
   echo "created: .env.example"

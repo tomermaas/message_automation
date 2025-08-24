@@ -6,7 +6,14 @@ from typing import List
 
 @dataclass
 class _Config:
-    base_url: str = os.getenv("KIDUM_BASE_URL", "https://kidum-me.com")
+    base_url: str = (
+        os.getenv("LMS_BASE_URL")
+        or os.getenv("KIDUM_BASE_URL", "https://kidum-me.com")
+    )
+    api_base_url: str = (
+        os.getenv("LMS_API_BASE_URL")
+        or os.getenv("KIDUM_API_BASE_URL", "https://lmsapi.kidum-me.com")
+    )
     headless: bool = os.getenv("HEADLESS", "true").lower() in ("1", "true", "yes")
     cors_origins: List[str] = field(
         default_factory=lambda: os.getenv(
