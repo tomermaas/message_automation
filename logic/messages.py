@@ -16,6 +16,9 @@ expects the following context keys:
 ``student_name``
     The student's display name.
 
+``exam_name``
+    The name of the exam as it should appear in the message.
+
 ``old_gap`` / ``new_gap``
     Previous and current gap values.  ``old_gap`` may be ``None`` when an
     initial gap record is created.

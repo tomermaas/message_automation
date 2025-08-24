@@ -22,11 +22,12 @@ class SyncOrchestrator:
 
         # Emit/update messages
         now = int(time.time())
-        for (kind, sname, old_gap, new_gap, sid) in dist["changes"]:
+        for (kind, sname, ename, old_gap, new_gap, sid) in dist["changes"]:
             text = build_student_message(
                 {
                     "kind": kind,
                     "student_name": sname,
+                    "exam_name": ename,
                     "old_gap": old_gap,
                     "new_gap": new_gap,
                 }

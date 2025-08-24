@@ -11,8 +11,8 @@ class DummySession:
 
 def test_sync_and_collect(tmp_path):
     session = DummySession([
-        {"student_id": "s1", "student_name": "Alice", "gap": 3},
-        {"student_id": "s2", "student_name": "Bob", "gap": 2},
+        {"student_id": "s1", "student_name": "Alice", "exam_name": "Math", "gap": 3},
+        {"student_id": "s2", "student_name": "Bob", "exam_name": "Math", "gap": 2},
     ])
     syncer = DistanceSyncer(tmp_path)
 
@@ -23,8 +23,8 @@ def test_sync_and_collect(tmp_path):
 
     # Update one record
     session.data = [
-        {"student_id": "s1", "student_name": "Alice", "gap": 5},
-        {"student_id": "s2", "student_name": "Bob", "gap": 2},
+        {"student_id": "s1", "student_name": "Alice", "exam_name": "Math", "gap": 5},
+        {"student_id": "s2", "student_name": "Bob", "exam_name": "Math", "gap": 2},
     ]
     result2 = asyncio.run(syncer.sync_and_collect(session, 1))
     assert result2["inserted"] == 0
@@ -32,5 +32,5 @@ def test_sync_and_collect(tmp_path):
     change = result2["changes"][0]
     assert change[0] == "updated"
     assert change[1] == "Alice"
-    assert change[2] == 3
-    assert change[3] == 5
+    assert change[3] == 3
+    assert change[4] == 5
