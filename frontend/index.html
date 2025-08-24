@@ -6,27 +6,40 @@
 <title>Kidum Automation</title>
 <style>
   :root {
-    --bg:#0b1020; --panel:#111937; --muted:#9aa4b2; --text:#e8edf4;
-    --accent:#f70035; --accent-2:#33c2ff; --ok:#16a34a; --warn:#eab308;
-    --err:#ef4444; --border:#1f2a4b;
+    --bg:#f5f5f5; --panel:#ffffff; --muted:#6b7280; --text:#111827;
+    --accent:#e60023; --accent-2:#33c2ff; --ok:#16a34a; --warn:#eab308;
+    --err:#ef4444; --border:#e0e0e0;
   }
   * { box-sizing:border-box; font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI","Noto Sans","Helvetica Neue",Arial,"Apple Color Emoji","Segoe UI Emoji"; }
-  body { margin:0; background:linear-gradient(180deg,#0b1020 0%,#0e1430 60%,#0b1020 100%); color:var(--text); }
+  body { margin:0; background:var(--bg); color:var(--text); }
+  .topbar {
+    background:#fff; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:40px; padding:0 24px;
+  }
+  .brand { font-weight:700; font-size:24px; color:var(--accent); }
+  .main-nav { display:flex; gap:24px; flex:1; }
+  .main-nav a {
+    color:var(--text); text-decoration:none; padding:20px 0;
+    border-bottom:2px solid transparent;
+  }
+  .main-nav a.active {
+    color:var(--accent); border-color:var(--accent);
+  }
   .wrap { max-width:900px; margin:40px auto; padding:0 16px; }
-  .card { background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,.25); }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:20px; box-shadow:0 2px 4px rgba(0,0,0,.05); }
   h1 { font-size:24px; margin:0 0 16px; }
   .row { display:grid; gap:12px; grid-template-columns:1fr 1fr; }
   .row-3 { display:grid; gap:12px; grid-template-columns:1fr 1fr 1fr; }
   label { font-size:14px; color:var(--muted); }
   input[type="text"], input[type="password"], select {
-    width:100%; padding:10px 12px; border-radius:10px;
-    border:1px solid var(--border); background:#0c1430; color:var(--text); outline:none;
+    width:100%; padding:10px 12px; border-radius:6px;
+    border:1px solid var(--border); background:#fff; color:var(--text); outline:none;
   }
   .btn {
-    appearance:none; border:none; border-radius:12px; padding:10px 14px; cursor:pointer; font-weight:600;
-    color:white; background:linear-gradient(90deg,var(--accent) 0%,#ff5a83 100%); box-shadow:0 4px 14px rgba(247,0,53,.35);
+    appearance:none; border:none; border-radius:8px; padding:10px 14px; cursor:pointer; font-weight:600;
+    color:white; background:var(--accent);
   }
-  .btn.secondary { background:linear-gradient(90deg,var(--accent-2) 0%,#5fe0ff 100%); box-shadow:0 4px 14px rgba(51,194,255,.3); }
+  .btn.secondary { background:var(--accent-2); color:#fff; }
   .btn.ghost { background:transparent; border:1px solid var(--border); color:var(--text); }
   .muted { color:var(--muted); }
   .pill { border:1px solid var(--border); border-radius:999px; padding:6px 10px; font-size:13px; color:var(--muted); }
@@ -162,9 +175,20 @@
       }
 
       return (
-        <div className="wrap">
-          <div className="card">
-            <h1>🔐 כניסה למערכת אוטומציה</h1>
+        <div>
+          <header className="topbar">
+            <div className="brand">קידום</div>
+            <nav className="main-nav">
+              <a href="#">עמוד הבית</a>
+              <a href="#">ניהול קורסים</a>
+              <a href="#" className="active">ניהול קופה</a>
+              <a href="#">מגזין</a>
+              <a href="#">דוחות</a>
+            </nav>
+          </header>
+          <div className="wrap">
+            <div className="card">
+              <h1>🔐 כניסה למערכת אוטומציה</h1>
             <div className="grid">
               <div className="row">
                 <div>
@@ -222,6 +246,7 @@
               </div>
             )}
 
+            </div>
           </div>
         </div>
       );
