@@ -104,6 +104,7 @@ async def login(body: LoginBody):
     ``logged_in=True`` even though no valid session existed, causing the
     frontend to redirect straight to the messages page.
 
+
     The fix is to only attach the session to the global reference after a
     successful login.  If authentication fails we close the temporary session
     and raise an error so ``/status`` continues to report
