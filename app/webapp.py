@@ -5,10 +5,9 @@ import atexit
 from typing import Optional, List, Dict
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Form, Request
+from fastapi import FastAPI, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from pydantic import BaseModel
 
 from app.config import CONFIG
@@ -29,9 +28,8 @@ from app.db.storage import CourseStore
 app = FastAPI()
 SYNC = SyncOrchestrator(Path(CONFIG.data_root))
 
-# Template engine (ui/web_templates)
+# Frontend root directory
 BASE_DIR = Path(__file__).resolve().parents[1]
-templates = Jinja2Templates(directory=str(BASE_DIR / "ui" / "web_templates"))
 
 # CORS
 app.add_middleware(
@@ -80,18 +78,9 @@ def _atexit_close():
 
 # ---------- UI ----------
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    s = _get_session(False)
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "logged_in": bool(s),
-            "display_name": s.get_logged_in_display_name() if s else None,
-            "teacher_id": s.get_teacher_id() if s else None,
-            "selected_id": s.get_selected_course_id() if (s and hasattr(s, "get_selected_course_id")) else None,
-        },
-    )
+async def index():
+    index_path = BASE_DIR / "frontend" / "index.html"
+    return FileResponse(index_path)
 
 # ---------- API ----------
 @app.post("/login")
