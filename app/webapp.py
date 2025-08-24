@@ -4,6 +4,7 @@ from __future__ import annotations
 import atexit
 from typing import Optional, List, Dict
 from pathlib import Path
+import subprocess
 
 
 from fastapi import FastAPI, HTTPException, Query
@@ -27,6 +28,35 @@ SYNC = SyncOrchestrator(Path(CONFIG.data_root))
 # Frontend root directory
 BASE_DIR = Path(__file__).resolve().parents[1]
 DIST_DIR = BASE_DIR / "frontend" / "dist"
+
+
+def _ensure_frontend_build() -> None:
+    """Build the frontend if the compiled assets are missing.
+
+    The development `index.html` loads TypeScript modules directly from the
+    ``/src`` folder.  Browsers treat those files as plain text and refuse to
+    execute them, resulting in ``Failed to load module script`` errors.  In
+    production we need the bundled files from ``frontend/dist`` instead.  If
+    that directory is absent we invoke ``npm run build`` so that subsequent
+    requests serve JavaScript with the correct MIME type.
+    """
+
+    index_file = DIST_DIR / "index.html"
+    if index_file.exists():
+        return
+    try:
+        subprocess.run(
+            ["npm", "run", "build"],
+            cwd=BASE_DIR / "frontend",
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception:
+        # If building fails we fall back to the uncompiled sources.  The
+        # caller can still handle the resulting error, but we avoid raising
+        # during import which would break tests.
+        pass
 app.mount(
     "/assets",
     StaticFiles(directory=DIST_DIR / "assets", check_dir=False),
@@ -92,6 +122,7 @@ def _atexit_close():
 # ---------- UI ----------
 @app.get("/", response_class=HTMLResponse)
 async def index():
+    _ensure_frontend_build()
     index_path = DIST_DIR / "index.html"
     if not index_path.exists():
         index_path = BASE_DIR / "frontend" / "index.html"
