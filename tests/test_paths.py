@@ -6,6 +6,7 @@ from app.config import CONFIG
 def test_paths_functions(tmp_path, monkeypatch):
     # Redirect data root to temporary directory
     monkeypatch.setattr(CONFIG, "data_root", str(tmp_path))
+    monkeypatch.setattr(CONFIG, "env", "test")
 
     # data_root
     assert paths.data_root() == Path(tmp_path)
@@ -18,5 +19,5 @@ def test_paths_functions(tmp_path, monkeypatch):
     # distance_db_path and messages_db_path
     distance_path = paths.distance_db_path(123)
     messages_path = paths.messages_db_path(123)
-    assert distance_path == cdir / "distance.db"
-    assert messages_path == cdir / "messages.db"
+    assert distance_path == cdir / "distance_test.db"
+    assert messages_path == cdir / "messages_test.db"
