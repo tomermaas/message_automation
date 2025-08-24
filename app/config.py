@@ -3,6 +3,10 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from typing import List
+from dotenv import load_dotenv
+
+# Ensure variables from a local .env file are available before constructing the config
+load_dotenv()
 
 @dataclass
 class _Config:
