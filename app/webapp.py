@@ -5,9 +5,11 @@ import atexit
 from typing import Optional, List, Dict
 from pathlib import Path
 
+
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
+
 from pydantic import BaseModel
 
 from app.config import CONFIG
