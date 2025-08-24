@@ -32,6 +32,11 @@ app.mount(
     StaticFiles(directory=DIST_DIR / "assets", check_dir=False),
     name="assets",
 )
+app.mount(
+    "/src",
+    StaticFiles(directory=BASE_DIR / "frontend" / "src", check_dir=False),
+    name="src",
+)
 
 # CORS
 app.add_middleware(
