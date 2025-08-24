@@ -25,5 +25,6 @@ class _Config:
         ).split(",")
     )
     data_root: str = os.getenv("DATA_ROOT", "data")
+    env: str = os.getenv("APP_ENV", "dev")
 
 CONFIG = _Config()

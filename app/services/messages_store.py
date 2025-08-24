@@ -2,6 +2,7 @@ from __future__ import annotations
 import sqlite3, time
 from pathlib import Path
 from typing import List, Dict, Optional
+from app.config import CONFIG
 
 class MessagesStore:
     def __init__(self, data_root: Path):
@@ -10,7 +11,8 @@ class MessagesStore:
     def _db_path(self, course_id: int) -> Path:
         p = self.root / "courses" / str(course_id)
         p.mkdir(parents=True, exist_ok=True)
-        return p / "messages.db"
+        fname = f"messages_{CONFIG.env}.db" if CONFIG.env else "messages.db"
+        return p / fname
 
     def _conn(self, course_id: int):
         path = self._db_path(course_id)
