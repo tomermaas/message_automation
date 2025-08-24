@@ -227,10 +227,10 @@ async def debug_distance(request: Request,
     con = sqlite3.connect(dbp)
     cur = con.cursor()
     rows = cur.execute(
-        """SELECT student_id, student_name_he, last_exam_date, exam_name_he,
-                  target_score, total_score, gap, gap_change, updated_at
+        """SELECT student_id, student_name, last_exam_date, exam_name,
+                  target_score, total_score, gap, gap_change
              FROM distance
-            ORDER BY student_name_he COLLATE NOCASE
+            ORDER BY student_name COLLATE NOCASE
             LIMIT ?""",
         (int(limit),)
     ).fetchall()
@@ -241,7 +241,7 @@ async def debug_distance(request: Request,
     trs = "\n".join(
         f"<tr><td>{esc(r[0])}</td><td>{esc(r[1])}</td><td>{esc(r[2])}</td>"
         f"<td>{esc(r[3])}</td><td>{esc(r[4])}</td><td>{esc(r[5])}</td>"
-        f"<td>{esc(r[6])}</td><td>{esc(r[7])}</td><td>{esc(r[8])}</td></tr>"
+        f"<td>{esc(r[6])}</td><td>{esc(r[7])}</td></tr>"
         for r in rows
     )
     html_doc = f"""
@@ -253,12 +253,12 @@ async def debug_distance(request: Request,
     <p><a href="/debug/distance?course_id={esc(course_id)}&refresh=1">רענן / סנכרן כעת</a></p>
     <table>
       <thead><tr>
-        <th>student_id</th><th>student_name_he</th><th>last_exam_date</th>
-        <th>exam_name_he</th><th>target_score</th><th>total_score</th>
-        <th>gap</th><th>gap_change</th><th>updated_at</th>
+        <th>student_id</th><th>student_name</th><th>last_exam_date</th>
+        <th>exam_name</th><th>target_score</th><th>total_score</th>
+        <th>gap</th><th>gap_change</th>
       </tr></thead>
       <tbody>
-        {trs or '<tr><td colspan="9"><i>אין נתונים</i></td></tr>'}
+        {trs or '<tr><td colspan="8"><i>אין נתונים</i></td></tr>'}
       </tbody>
     </table>
     </body></html>
