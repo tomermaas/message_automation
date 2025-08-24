@@ -204,12 +204,13 @@ async def courses(names_only: bool = False):
 @app.get("/status")
 async def status():
     s = _get_session(False)
+    logged_in = bool(s and s.get_logged_in_display_name())
     return {
         "ok": True,
-        "logged_in": bool(s),
-        "display_name": s.get_logged_in_display_name() if s else None,
-        "teacher_id": s.get_teacher_id() if s else None,
-        "selected_id": s.get_selected_course_id() if (s and hasattr(s, "get_selected_course_id")) else None,
+        "logged_in": logged_in,
+        "display_name": s.get_logged_in_display_name() if logged_in else None,
+        "teacher_id": s.get_teacher_id() if logged_in else None,
+        "selected_id": s.get_selected_course_id() if (logged_in and hasattr(s, "get_selected_course_id")) else None,
     }
 
 # Persist chosen course (ensure these helpers exist on AsyncKidumSession)
