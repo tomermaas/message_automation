@@ -5,33 +5,24 @@ import atexit
 from typing import Optional, List, Dict
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Form, Request
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
 
 from app.config import CONFIG
 from automation.browser_async import AsyncKidumSession
 
 from app.services.orchestrator import SyncOrchestrator
-from app.services.paths import course_dir
-
-from fastapi import Query
 from app.services.paths import distance_db_path
-import sqlite3, html
-
-
-
-from fastapi import Query
-import sqlite3
 from app.db.storage import CourseStore
+
+import sqlite3, html
 app = FastAPI()
 SYNC = SyncOrchestrator(Path(CONFIG.data_root))
 
-# Template engine (ui/web_templates)
+# Frontend root directory
 BASE_DIR = Path(__file__).resolve().parents[1]
-templates = Jinja2Templates(directory=str(BASE_DIR / "ui" / "web_templates"))
 
 # CORS
 app.add_middleware(
@@ -80,18 +71,9 @@ def _atexit_close():
 
 # ---------- UI ----------
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    s = _get_session(False)
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "logged_in": bool(s),
-            "display_name": s.get_logged_in_display_name() if s else None,
-            "teacher_id": s.get_teacher_id() if s else None,
-            "selected_id": s.get_selected_course_id() if (s and hasattr(s, "get_selected_course_id")) else None,
-        },
-    )
+async def index():
+    index_path = BASE_DIR / "frontend" / "index.html"
+    return FileResponse(index_path)
 
 # ---------- API ----------
 @app.post("/login")
@@ -180,9 +162,6 @@ async def status():
 class SelectCourseBody(BaseModel):
     course_id: int
 
-class SelectCourseBody(BaseModel):
-    course_id: int
-
 @app.post("/select_course")
 async def select_course(body: SelectCourseBody):
     s = await _ensure_logged_in()
@@ -196,13 +175,12 @@ async def select_course(body: SelectCourseBody):
     return {"ok": True, "selected_id": s.get_selected_course_id(), "summary": summary}
 
 
-from fastapi import Query
-
 @app.get("/debug/distance", response_class=HTMLResponse)
-async def debug_distance(request: Request,
-                         course_id: int | None = Query(default=None),
-                         refresh: bool = Query(default=False),
-                         limit: int = Query(default=500)):
+async def debug_distance(
+    course_id: int | None = Query(default=None),
+    refresh: bool = Query(default=False),
+    limit: int = Query(default=500),
+):
     s = _get_session(False)
     # Resolve course id: explicit param > selected in session
     if course_id is None:
@@ -264,9 +242,9 @@ async def debug_distance(request: Request,
     </body></html>
     """
     return HTMLResponse(html_doc)
+
+
 # --- Debug: messages table ---
-from app.db.storage import CourseStore
-from pathlib import Path
 
 @app.get("/debug/messages")
 async def debug_messages(course_id: int):

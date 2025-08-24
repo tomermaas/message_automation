@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kidum Automation</title>
+<style>
+  :root {
+    --bg:#0b1020; --panel:#111937; --muted:#9aa4b2; --text:#e8edf4;
+    --accent:#f70035; --accent-2:#33c2ff; --ok:#16a34a; --warn:#eab308;
+    --err:#ef4444; --border:#1f2a4b;
+  }
+  * { box-sizing:border-box; font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI","Noto Sans","Helvetica Neue",Arial,"Apple Color Emoji","Segoe UI Emoji"; }
+  body { margin:0; background:linear-gradient(180deg,#0b1020 0%,#0e1430 60%,#0b1020 100%); color:var(--text); }
+  .wrap { max-width:900px; margin:40px auto; padding:0 16px; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,.25); }
+  h1 { font-size:24px; margin:0 0 16px; }
+  .row { display:grid; gap:12px; grid-template-columns:1fr 1fr; }
+  .row-3 { display:grid; gap:12px; grid-template-columns:1fr 1fr 1fr; }
+  label { font-size:14px; color:var(--muted); }
+  input[type="text"], input[type="password"], select {
+    width:100%; padding:10px 12px; border-radius:10px;
+    border:1px solid var(--border); background:#0c1430; color:var(--text); outline:none;
+  }
+  .btn {
+    appearance:none; border:none; border-radius:12px; padding:10px 14px; cursor:pointer; font-weight:600;
+    color:white; background:linear-gradient(90deg,var(--accent) 0%,#ff5a83 100%); box-shadow:0 4px 14px rgba(247,0,53,.35);
+  }
+  .btn.secondary { background:linear-gradient(90deg,var(--accent-2) 0%,#5fe0ff 100%); box-shadow:0 4px 14px rgba(51,194,255,.3); }
+  .btn.ghost { background:transparent; border:1px solid var(--border); color:var(--text); }
+  .muted { color:var(--muted); }
+  .pill { border:1px solid var(--border); border-radius:999px; padding:6px 10px; font-size:13px; color:var(--muted); }
+  .status-ok { color:var(--ok); font-weight:600; }
+  .status-err { color:var(--err); font-weight:600; }
+  .status-warn { color:var(--warn); font-weight:600; }
+  .mt16 { margin-top:16px; } .mt8 { margin-top:8px; }
+  .grid { display:grid; gap:16px; }
+  small { color:var(--muted); }
+  hr { border:none; border-top:1px solid var(--border); }
+</style>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    async function $get(url) {
+      const r = await fetch(url, { credentials: 'include' });
+      if (!r.ok) throw new Error(`GET ${url} -> ${r.status}`);
+      return r.json();
+    }
+
+    async function $post(url, body) {
+      const r = await fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {})
+      });
+      const text = await r.text();
+      let data = {};
+      try { data = text ? JSON.parse(text) : {}; } catch(e){ data = { ok:false, error:text }; }
+      if (!r.ok) {
+        const msg = (data && data.detail) ? data.detail : (`HTTP ${r.status}`);
+        throw new Error(msg);
+      }
+      return data;
+    }
+
+    function App() {
+      const [username, setUsername] = useState('');
+      const [password, setPassword] = useState('');
+      const [loggedIn, setLoggedIn] = useState(false);
+      const [displayName, setDisplayName] = useState('');
+      const [teacherId, setTeacherId] = useState('');
+      const [courses, setCourses] = useState([]);
+      const [selectedId, setSelectedId] = useState('');
+      const [loginMsg, setLoginMsg] = useState('');
+      const [statusText, setStatusText] = useState('לא מחובר');
+      const [courseMsg, setCourseMsg] = useState('');
+
+      useEffect(() => {
+        refreshStatusAndMaybeLoad();
+      }, []);
+
+      async function refreshStatusAndMaybeLoad() {
+        try {
+          const s = await $get('/status');
+          setLoggedIn(!!s.logged_in);
+          setDisplayName(s.display_name || '');
+          setTeacherId(s.teacher_id || '');
+          setStatusText(s.logged_in ? 'מחובר' : 'לא מחובר');
+          if (s.logged_in) await loadCourses(true);
+        } catch (e) {
+          setStatusText(String(e.message || e));
+        }
+      }
+
+      async function loadCourses(auto=false) {
+        setCourseMsg(auto ? 'טוען קורסים...' : 'מרענן קורסים...');
+        try {
+          const res = await $get('/courses');
+          if (res && res.ok) {
+            setCourses(res.data || []);
+            setSelectedId(res.selected_id ?? '');
+            setCourseMsg(`נמצאו ${res.data?.length ?? 0} קורסים.`);
+          } else {
+            setCourseMsg('שגיאה בטעינת קורסים.');
+          }
+        } catch (e) {
+          setCourseMsg('שגיאה: ' + (e.message || e));
+        }
+      }
+
+      async function handleLogin() {
+        setLoginMsg('מתחבר...');
+        try {
+          const data = await $post('/login', { username, password });
+          setLoginMsg('התחברות הצליחה.');
+          setLoggedIn(true);
+          setStatusText('מחובר');
+          setDisplayName(data.display_name);
+          setTeacherId(data.teacher_id);
+          await loadCourses(true);
+        } catch (e) {
+          setStatusText('לא מחובר');
+          setLoggedIn(false);
+          setLoginMsg('שגיאה: ' + (e.message || e));
+        }
+      }
+
+      async function handleLogout() {
+        setLoginMsg('מתנתק...');
+        try {
+          await $post('/logout', {});
+          setLoginMsg('התנתקת.');
+          setLoggedIn(false);
+          setStatusText('לא מחובר');
+          setDisplayName('');
+          setTeacherId('');
+          setCourses([]);
+          setSelectedId('');
+        } catch (e) {
+          setLoginMsg('שגיאה: ' + (e.message || e));
+        }
+      }
+
+      async function handleSelectCourse(e) {
+        const cid = parseInt(e.target.value, 10);
+        setSelectedId(cid);
+        setCourseMsg('שומר בחירה...');
+        if (!cid) return;
+        try {
+          await $post('/select_course', { course_id: cid });
+          setCourseMsg('נשמר ✔');
+        } catch (e) {
+          setCourseMsg('שגיאה: ' + (e.message || e));
+        }
+      }
+
+      return (
+        <div className="wrap">
+          <div className="card">
+            <h1>🔐 כניסה למערכת אוטומציה</h1>
+            <div className="grid">
+              <div className="row">
+                <div>
+                  <label>שם משתמש</label>
+                  <input value={username} onChange={e => setUsername(e.target.value)} type="text" autoComplete="username" />
+                </div>
+                <div>
+                  <label>סיסמה</label>
+                  <input value={password} onChange={e => setPassword(e.target.value)} type="password" autoComplete="current-password" />
+                </div>
+              </div>
+              <div style={{display:'flex', gap:'12px', alignItems:'center', flexWrap:'wrap'}}>
+                <button onClick={handleLogin} className="btn">התחברות</button>
+                <button onClick={handleLogout} className="btn ghost">התנתקות</button>
+                <span className="muted">{loginMsg}</span>
+              </div>
+            </div>
+
+            <hr className="mt16" />
+
+            <div className="grid mt16">
+              <div className="row-3">
+                <div className="pill">סטטוס: <span className={loggedIn ? 'status-ok' : 'status-warn'}>{statusText}</span></div>
+                <div className="pill">שם מוצג: <span>{displayName || '—'}</span></div>
+                <div className="pill">Teacher ID: <span>{teacherId || '—'}</span></div>
+              </div>
+            </div>
+
+            {loggedIn && (
+              <div className="mt16">
+                <h3>בחירת קורס</h3>
+                <div className="row">
+                  <div>
+                    <label htmlFor="courseSelect">קורסים זמינים</label>
+                    <select id="courseSelect" value={selectedId} onChange={handleSelectCourse}>
+                      <option value="">— אין נתונים —</option>
+                      {courses.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                    <div className="mt8" style={{display:'flex', gap:'8px', alignItems:'center', flexWrap:'wrap'}}>
+                      <button onClick={() => loadCourses(false)} className="btn secondary">רענן רשימת קורסים</button>
+                      <small className="muted">{courseMsg}</small>
+                    </div>
+                  </div>
+                  <div>
+                    <label>מידע</label>
+                    <div className="muted" style={{lineHeight:1.6}}>
+                      • לאחר התחברות, רשימת הקורסים נטענת אוטומטית מה-API.<br />
+                      • אם ה-API ייכשל, תהיה נפילה לגיבוי דרך ה-UI (איטי יותר).<br />
+                      • הבחירה נשמרת בצד השרת עד לבחירה חדשה.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
