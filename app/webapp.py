@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from pydantic import BaseModel
 
@@ -25,6 +26,12 @@ SYNC = SyncOrchestrator(Path(CONFIG.data_root))
 
 # Frontend root directory
 BASE_DIR = Path(__file__).resolve().parents[1]
+DIST_DIR = BASE_DIR / "frontend" / "dist"
+app.mount(
+    "/assets",
+    StaticFiles(directory=DIST_DIR / "assets", check_dir=False),
+    name="assets",
+)
 
 # CORS
 app.add_middleware(
@@ -80,7 +87,9 @@ def _atexit_close():
 # ---------- UI ----------
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    index_path = BASE_DIR / "frontend" / "index.html"
+    index_path = DIST_DIR / "index.html"
+    if not index_path.exists():
+        index_path = BASE_DIR / "frontend" / "index.html"
     return FileResponse(index_path)
 
 # ---------- API ----------
