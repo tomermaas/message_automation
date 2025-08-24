@@ -105,7 +105,8 @@ async def login(body: LoginBody):
     frontend to redirect straight to the messages page.
 
     To avoid this, ensure we clean up the session on failure and reset the
-    global reference before returning an error.
+    global reference before returning an error.  A regression test exercises
+    this path to prevent future regressions.
     """
 
     global _session
