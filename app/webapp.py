@@ -95,10 +95,36 @@ async def index():
 # ---------- API ----------
 @app.post("/login")
 async def login(body: LoginBody):
+    """Log in to a single shared automation session.
+
+    The previous implementation would create the session object before
+    verifying the credentials.  If authentication failed, the partially
+    initialised session stayed attached to the global ``_session`` variable.
+    Subsequent calls to ``/status`` would therefore report
+    ``logged_in=True`` even though no valid session existed, causing the
+    frontend to redirect straight to the messages page.
+
+    To avoid this, ensure we clean up the session on failure and reset the
+    global reference before returning an error.
+    """
+
+    global _session
+
     s = _get_session(True)
-    ok = await s.login(body.username, body.password)
+    ok = False
+    try:
+        ok = await s.login(body.username, body.password)
+    except Exception:
+        # Treat any exception during login as a failure and clean up below.
+        ok = False
+
     if not ok:
+        # Login failed; close the session and clear the global reference so
+        # that ``/status`` correctly reports ``logged_in=False``.
+        await s.close()
+        _session = None
         raise HTTPException(status_code=401, detail="Login failed.")
+
     return {
         "ok": True,
         "display_name": s.get_logged_in_display_name(),
