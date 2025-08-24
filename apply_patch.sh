@@ -16,15 +16,15 @@ else
 fi
 
 # 2) Ensure .env.example
-if [[ ! -f ".env.example" ]]; then
-  cat > .env.example << 'EOF'
+if [[ ! -f ".env" ]]; then
+  cat > .env<< 'EOF'
 LMS_BASE_URL=https://kidum-me.com
 LMS_API_BASE_URL=https://lmsapi.kidum-me.com
 PLAYWRIGHT_HEADLESS=true
 EOF
-  echo "created: .env.example"
+  echo "created: .env"
 else
-  echo "exists : .env.example (left unchanged)"
+  echo "exists : .env (left unchanged)"
 fi
 
 # 3) Fill requirements.txt only if empty (no overwrite if it already has content)
