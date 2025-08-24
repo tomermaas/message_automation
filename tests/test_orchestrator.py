@@ -13,8 +13,8 @@ def test_sync_all(tmp_path, monkeypatch):
     monkeypatch.setattr('app.services.orchestrator.time.time', lambda: 111)
 
     session = DummySession([
-        {"student_id": "s1", "student_name": "Alice", "gap": 3},
-        {"student_id": "s2", "student_name": "Bob", "gap": 1},
+        {"student_id": "s1", "student_name": "Alice", "exam_name": "Math", "gap": 3},
+        {"student_id": "s2", "student_name": "Bob", "exam_name": "Math", "gap": 1},
     ])
 
     orchestrator = SyncOrchestrator(tmp_path)

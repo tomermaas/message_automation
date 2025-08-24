@@ -59,10 +59,12 @@ class DistanceSyncer:
             "gap_change": gap_change,
         }
 
-    def _upsert_row(self, conn, row: Dict) -> Optional[Tuple[str, str, Optional[int], int]]:
+    def _upsert_row(self, conn, row: Dict) -> Optional[Tuple[str, str, Optional[str], Optional[int], int]]:
         """
-        Returns a change tuple (kind, student_name, old_gap, new_gap) if inserted/updated, else None.
-        kind in {"inserted","updated"}.
+        Returns a change tuple ``(kind, student_name, exam_name, old_gap, new_gap)``
+        if the row was inserted or updated, otherwise ``None``.
+
+        ``kind`` is either ``"inserted"`` or ``"updated"``.
         """
         student_id = row["student_id"]
         student_name = row.get("student_name") or ""
@@ -83,7 +85,7 @@ class DistanceSyncer:
                 """,
                 (student_id, student_name, last_exam_date, exam_name, target_score, total_score, new_gap),
             )
-            return ("inserted", student_name, None, new_gap)
+            return ("inserted", student_name, exam_name, None, new_gap)
 
         # compare; update if any change (gap_change only when gap changed)
         old_gap = int(existing.get("gap") or 0)
@@ -110,7 +112,7 @@ class DistanceSyncer:
             """,
             (student_name, last_exam_date, exam_name, target_score, total_score, new_gap, gap_change, student_id),
         )
-        return ("updated", student_name, old_gap, new_gap)
+        return ("updated", student_name, exam_name, old_gap, new_gap)
 
     async def sync_and_collect(self, session, course_id: int) -> Dict:
         """
@@ -120,7 +122,8 @@ class DistanceSyncer:
         data = await session.api_get_distance_details(course_id)
         inserted = 0
         updated = 0
-        changes: List[Tuple[str, str, Optional[int], int, str]] = []  # (kind, student_name, old_gap, new_gap, student_id)
+        changes: List[Tuple[str, str, Optional[str], Optional[int], int, str]] = []
+        # (kind, student_name, exam_name, old_gap, new_gap, student_id)
 
         with self._conn(course_id) as conn:
             for row in data:
@@ -136,12 +139,12 @@ class DistanceSyncer:
                 }
                 ch = self._upsert_row(conn, norm)
                 if ch:
-                    kind, sname, old_gap, new_gap = ch
+                    kind, sname, ename, old_gap, new_gap = ch
                     if kind == "inserted":
                         inserted += 1
                     else:
                         updated += 1
-                    changes.append((kind, sname, old_gap, new_gap, norm["student_id"]))
+                    changes.append((kind, sname, ename, old_gap, new_gap, norm["student_id"]))
             conn.commit()
 
         return {
