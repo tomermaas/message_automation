@@ -1,6 +1,8 @@
 from playwright.sync_api import sync_playwright, TimeoutError as TE
 
-BASE = "https://kidum-me.com"
+from app.config import CONFIG
+
+BASE = CONFIG.base_url
 
 def main():
     user = input("Username: ").strip()
