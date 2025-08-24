@@ -1,0 +1,8 @@
+{%- if kind == 'inserted' -%}
+נוצר רישום פער מטרה ראשוני עבור {{ student_name }}: {{ new_gap }}.
+{%- elif old_gap is none -%}
+עדכון פער מטרה עבור {{ student_name }}: {{ new_gap }}.
+{%- else -%}
+עדכון פער מטרה עבור {{ student_name }}: {{ old_gap }} → {{ new_gap }}.
+{%- endif -%}
+
