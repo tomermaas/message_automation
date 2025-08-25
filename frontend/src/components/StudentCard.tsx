@@ -19,9 +19,14 @@ export function StudentCard({ message, onEdit }: Props) {
           נוצר: {dayjs.unix(message.created_at).format('DD.MM.YYYY HH:mm')}<br/>
           עודכן: {dayjs.unix(message.updated_at).format('DD.MM.YYYY HH:mm')}
         </div>
+        {meta.target_score !== undefined && meta.total_score !== undefined && (
+          <div className="text-xs mb-2">
+            ציון מבחן: {meta.total_score} | ציון יעד: {meta.target_score}
+          </div>
+        )}
         {meta.gap !== undefined && (
           <div className="text-xs mb-2">
-            פער: <span className={meta.gap > 0 ? 'text-red-600' : 'text-green-600'}>{meta.gap}</span>
+            פער: <span className={meta.gap > 0 ? 'text-green-600' : meta.gap < 0 ? 'text-red-600' : ''}>{meta.gap}</span>
             {meta.gap_change !== undefined && meta.gap_change !== null && (
               <span className="ml-1">({meta.gap_change > 0 ? '+' : ''}{meta.gap_change})</span>
             )}

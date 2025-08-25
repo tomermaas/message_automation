@@ -37,7 +37,7 @@ export function FilterBar({ courseId, setCourseId, typeFilter, setTypeFilter, se
       <select className="border rounded p-1" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
         <option value="all">הכל</option>
         {types.data?.types?.map((t: string) => (
-          <option key={t} value={t}>{t}</option>
+          <option key={t} value={t}>{t === 'distance' ? 'מרחק מציון היעד' : t}</option>
         ))}
       </select>
       <input className="border rounded p-1" placeholder="חיפוש" value={search} onChange={e => setSearch(e.target.value)} />
