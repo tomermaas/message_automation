@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AppShell } from '../components/AppShell'
 import { FilterBar } from '../components/FilterBar'
 import { StudentCard } from '../components/StudentCard'
-import { EditMessageDialog } from '../components/EditMessageDialog'
+import { MessageEditorModal } from '../components/MessageEditorModal'
 import { useStatus } from '../hooks/useStatus'
 import { useMessages } from '../hooks/useMessages'
 
 export default function MessagesPage() {
   const nav = useNavigate()
+  const [params] = useSearchParams()
   const status = useStatus()
   const [courseId, setCourseId] = useState<number | undefined>(undefined)
-  const [typeFilter, setTypeFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState(params.get('db_type') || 'all')
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<any | null>(null)
 
@@ -38,7 +39,7 @@ export default function MessagesPage() {
           <StudentCard key={m.id} message={m} onEdit={setEditing} />
         ))}
       </div>
-      <EditMessageDialog open={!!editing} onClose={() => setEditing(null)} message={editing} />
+      <MessageEditorModal open={!!editing} onClose={() => setEditing(null)} message={editing} />
     </AppShell>
   )
 }
