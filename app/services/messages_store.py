@@ -81,6 +81,14 @@ class MessagesStore:
                 # Ensure existing rows get the proper course id value.
                 conn.execute("UPDATE messages SET course_id=?", (course_id,))
 
+            # Legacy databases may also lack ``content_html`` which is used by
+            # the API responses and therefore must exist to avoid query
+            # failures.  Add the column with a sensible default when missing.
+            if "content_html" not in cols:
+                conn.execute(
+                    "ALTER TABLE messages ADD COLUMN content_html TEXT NOT NULL DEFAULT ''"
+                )
+
             # Older databases may also miss the ``updated_at`` column.  When
             # upgrading we add it and backfill its value with ``created_at`` so
             # existing rows remain consistent with the new schema.
@@ -189,13 +197,27 @@ class MessagesStore:
             params.append(f"%{search}%")
         where = " AND ".join(clauses)
 
-        base_query = (
-            "SELECT id, course_id, db_type, student_id, student_name, created_at,"
-            " updated_at, content_html, content_json, source, meta"
-            " FROM messages WHERE " + where
-        )
-
         with self._conn(course_id) as conn:
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(messages)")}
+            select_cols = [
+                "id",
+                "course_id",
+                "db_type",
+                "student_id",
+                "student_name",
+                "created_at",
+                "updated_at",
+            ]
+            if "content_html" in cols:
+                select_cols.append("content_html")
+            else:
+                # Legacy databases may miss this column; provide an empty placeholder
+                select_cols.append("'' AS content_html")
+            select_cols += ["content_json", "source", "meta"]
+            base_query = (
+                "SELECT " + ", ".join(select_cols) + " FROM messages WHERE " + where
+            )
+
             total = conn.execute(
                 f"SELECT COUNT(*) FROM messages WHERE {where}", params
             ).fetchone()[0]
