@@ -39,9 +39,18 @@ class MessagesStore:
         return conn
 
     def ensure_schema(self, course_id: int) -> None:
-        """Create the database schema if it does not yet exist."""
+        """Create or upgrade the messages schema for ``course_id``.
+
+        Older versions of the database did not include a ``course_id`` column
+        because each course used its own SQLite file.  The newer schema embeds
+        the course id in every row and uses it in the indices.  This helper
+        therefore needs to both create a fresh schema and upgrade existing
+        databases which still use the legacy layout.
+        """
 
         with self._conn(course_id) as conn:
+            # Create table if it does not exist.  ``course_id`` is part of the
+            # canonical schema but older databases may miss it.
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS messages (
@@ -59,6 +68,21 @@ class MessagesStore:
                 )
                 """,
             )
+
+            # Upgrade legacy databases lacking the ``course_id`` column.
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(messages)")}
+            if "course_id" not in cols:
+                conn.execute(
+                    f"ALTER TABLE messages ADD COLUMN course_id INTEGER NOT NULL DEFAULT {course_id}"
+                )
+                # Ensure existing rows get the proper course id value.
+                conn.execute("UPDATE messages SET course_id=?", (course_id,))
+
+            # Recreate indices with the correct column list.  Dropping first
+            # handles upgrades from older schemas where the indices referenced
+            # only ``db_type`` and ``student_id``.
+            conn.execute("DROP INDEX IF EXISTS idx_messages_unique")
+            conn.execute("DROP INDEX IF EXISTS idx_messages_type")
             conn.execute(
                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_unique ON messages(course_id, db_type, student_id)"
             )
