@@ -88,3 +88,60 @@ def test_ensure_schema_upgrades_legacy_db(tmp_path):
     with sqlite3.connect(db_path) as conn:
         cols = {r[1] for r in conn.execute("PRAGMA table_info(messages)")}
     assert "course_id" in cols
+
+
+def test_ensure_schema_adds_updated_at(tmp_path):
+    store = MessagesStore(tmp_path)
+    course_id = 11
+
+    # Create legacy database without the ``updated_at`` column.
+    db_path = store._db_path(course_id)
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        """
+        CREATE TABLE messages (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            course_id     INTEGER NOT NULL,
+            db_type       TEXT    NOT NULL,
+            student_id    TEXT    NOT NULL,
+            student_name  TEXT    NOT NULL,
+            created_at    INTEGER NOT NULL,
+            content_html  TEXT    NOT NULL,
+            content_json  TEXT    NOT NULL,
+            source        TEXT    NOT NULL DEFAULT 'auto',
+            meta          TEXT
+        )
+        """,
+    )
+    # Insert a sample row so we can verify backfilling.
+    conn.execute(
+        """
+        INSERT INTO messages (
+            course_id, db_type, student_id, student_name,
+            created_at, content_html, content_json, source, meta
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            course_id,
+            "distance",
+            "s1",
+            "Alice",
+            123,
+            "html",
+            "{}",
+            "auto",
+            "{}",
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    # Listing messages should trigger the schema upgrade and succeed.
+    rows = store.list_all(course_id)
+    assert rows["total"] == 1
+    assert rows["rows"][0]["updated_at"] == 123
+
+    # ``updated_at`` column should now exist in the schema.
+    with sqlite3.connect(db_path) as conn:
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(messages)")}
+    assert "updated_at" in cols

@@ -69,7 +69,10 @@ class MessagesStore:
                 """,
             )
 
-            # Upgrade legacy databases lacking the ``course_id`` column.
+            # Upgrade legacy databases lacking columns introduced in newer
+            # versions of the schema.  ``course_id`` was added when the
+            # database moved from one file per course to a shared layout,
+            # while ``updated_at`` was added to support tracking manual edits.
             cols = {r[1] for r in conn.execute("PRAGMA table_info(messages)")}
             if "course_id" not in cols:
                 conn.execute(
@@ -77,6 +80,15 @@ class MessagesStore:
                 )
                 # Ensure existing rows get the proper course id value.
                 conn.execute("UPDATE messages SET course_id=?", (course_id,))
+
+            # Older databases may also miss the ``updated_at`` column.  When
+            # upgrading we add it and backfill its value with ``created_at`` so
+            # existing rows remain consistent with the new schema.
+            if "updated_at" not in cols:
+                conn.execute(
+                    "ALTER TABLE messages ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0"
+                )
+                conn.execute("UPDATE messages SET updated_at=created_at")
 
             # Recreate indices with the correct column list.  Dropping first
             # handles upgrades from older schemas where the indices referenced
