@@ -145,3 +145,39 @@ def test_ensure_schema_adds_updated_at(tmp_path):
     with sqlite3.connect(db_path) as conn:
         cols = {r[1] for r in conn.execute("PRAGMA table_info(messages)")}
     assert "updated_at" in cols
+
+
+def test_ensure_schema_adds_content_html(tmp_path):
+    store = MessagesStore(tmp_path)
+    course_id = 13
+
+    # Create legacy database without the ``content_html`` column.
+    db_path = store._db_path(course_id)
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        """
+        CREATE TABLE messages (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            course_id     INTEGER NOT NULL,
+            db_type       TEXT    NOT NULL,
+            student_id    TEXT    NOT NULL,
+            student_name  TEXT    NOT NULL,
+            created_at    INTEGER NOT NULL,
+            updated_at    INTEGER NOT NULL,
+            content_json  TEXT    NOT NULL,
+            source        TEXT    NOT NULL DEFAULT 'auto',
+            meta          TEXT
+        )
+        """,
+    )
+    conn.commit()
+    conn.close()
+
+    # Listing messages should upgrade the schema and return no rows.
+    rows = store.list_all(course_id)
+    assert rows["total"] == 0
+
+    # ``content_html`` column should now exist in the schema.
+    with sqlite3.connect(db_path) as conn:
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(messages)")}
+    assert "content_html" in cols
