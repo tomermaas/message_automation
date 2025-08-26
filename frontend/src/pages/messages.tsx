@@ -25,6 +25,9 @@ export default function MessagesPage() {
 
   return (
     <AppShell>
+      <button onClick={() => window.close()} className="fixed top-4 right-4 bg-gray-300 px-2 py-1 rounded">
+        יציאה
+      </button>
       <FilterBar
         courseId={courseId}
         setCourseId={setCourseId}
