@@ -303,6 +303,7 @@ async def patch_message(msg_id: int, body: PatchMessageBody):
 
     # Sanitize HTML
     import bleach
+    from bleach.css_sanitizer import CSSSanitizer
 
     allowed_tags = [
         "p",
@@ -328,6 +329,7 @@ async def patch_message(msg_id: int, body: PatchMessageBody):
         tags=allowed_tags,
         attributes=allowed_attrs,
         strip=True,
+        css_sanitizer=CSSSanitizer(),
     )
 
     try:

@@ -26,6 +26,9 @@ export default function LoginPage() {
 
   return (
     <div className="flex items-center justify-center h-screen bg-gray-100">
+      <button onClick={() => window.close()} className="fixed top-4 right-4 bg-gray-300 px-2 py-1 rounded">
+        יציאה
+      </button>
       <form onSubmit={submit} className="bg-white p-6 rounded shadow w-80 flex flex-col gap-2">
         <h1 className="text-xl mb-2 text-center">כניסה</h1>
         <input className="border p-2" placeholder="משתמש" value={username} onChange={e => setUsername(e.target.value)} />
