@@ -17,25 +17,48 @@ export function FilterBar({ courseId, setCourseId, typeFilter, setTypeFilter, se
   const courses = useCourses()
 
   return (
-    <div className="flex flex-wrap items-center gap-2 p-2 bg-white shadow">
-      <button className="px-2 py-1 border rounded" onClick={() => api.logout().then(() => window.location.href = '/')}>התנתק</button>
+    <div className="flex flex-wrap items-center gap-2 p-3 bg-white shadow-sm">
+      <button
+        className="px-3 py-1 border rounded focus-visible:outline-primary focus-visible:outline-2"
+        onClick={() => api.logout().then(() => (window.location.href = '/'))}
+      >
+        התנתק
+      </button>
       <select
-        className="border rounded p-1"
+        className="border rounded p-1 focus-visible:outline-primary focus-visible:outline-2"
         value={courseId ?? ''}
         onChange={e => {
           const id = Number(e.target.value)
           setCourseId(id)
-          api.selectCourse(id).then(() => onRefresh()).catch(err => toast.error(err.message))
+          api
+            .selectCourse(id)
+            .then(() => onRefresh())
+            .catch(err => toast.error(err.message))
         }}
       >
         <option value="">בחר קורס</option>
         {courses.data?.data?.map((c: any) => (
-          <option key={c.id} value={c.id}>{c.name}</option>
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
         ))}
       </select>
       <DbTypeSelect value={typeFilter} onChange={setTypeFilter} />
-      <input className="border rounded p-1" placeholder="חיפוש" value={search} onChange={e => setSearch(e.target.value)} />
-      <button className="px-2 py-1 border rounded" onClick={onRefresh}>רענן</button>
+      <input
+        className="border rounded p-1 focus-visible:outline-primary focus-visible:outline-2"
+        placeholder="חיפוש"
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+      />
+      <button
+        className="px-3 py-1 bg-primary text-white rounded hover:brightness-110 transition focus-visible:outline-primary focus-visible:outline-2"
+        onClick={() => {
+          onRefresh()
+          toast.success('רשימה עודכנה')
+        }}
+      >
+        רענון
+      </button>
     </div>
   )
 }

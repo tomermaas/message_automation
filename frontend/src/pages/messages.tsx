@@ -22,6 +22,7 @@ export default function MessagesPage() {
   }, [status.data, nav])
 
   const messages = useMessages({ course_id: courseId, type: typeFilter, search })
+  const allMessages = messages.data?.pages.flatMap(p => p.data) ?? []
 
   return (
     <AppShell>
@@ -37,11 +38,22 @@ export default function MessagesPage() {
         setSearch={setSearch}
         onRefresh={() => messages.refetch()}
       />
-      <div className="p-4 grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px,1fr))' }}>
-        {messages.data?.data?.map((m: any) => (
+      <div className="p-4 grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px,1fr))' }}>
+        {allMessages.map((m: any) => (
           <StudentCard key={m.id} message={m} onEdit={setEditing} />
         ))}
       </div>
+      {messages.hasNextPage && (
+        <div className="text-center p-4">
+          <button
+            className="px-4 py-2 bg-primary text-white rounded hover:brightness-110 transition focus-visible:outline-primary focus-visible:outline-2"
+            onClick={() => messages.fetchNextPage()}
+            disabled={messages.isFetchingNextPage}
+          >
+            {messages.isFetchingNextPage ? 'טוען...' : 'טען עוד'}
+          </button>
+        </div>
+      )}
       <MessageEditorModal open={!!editing} onClose={() => setEditing(null)} message={editing} />
     </AppShell>
   )

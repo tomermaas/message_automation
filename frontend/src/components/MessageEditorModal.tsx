@@ -106,7 +106,7 @@ export function MessageEditorModal({ open, onClose, message }: Props) {
             <Tooltip title="בצע מחדש"><IconButton onClick={() => editor.chain().focus().redo().run()}><Redo /></IconButton></Tooltip>
           </Stack>
         )}
-        <div style={{ border: '1px solid #ccc', borderRadius: 4, padding: 8, minHeight: 240 }}>
+        <div dir="rtl" style={{ border: '1px solid #ccc', borderRadius: 4, padding: 8, minHeight: 240 }}>
           <EditorContent editor={editor} />
         </div>
       </DialogContent>
