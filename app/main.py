@@ -4,6 +4,7 @@ import threading
 import webbrowser
 
 import uvicorn
+import app.webapp
 
 
 def _open_browser() -> None:
@@ -14,7 +15,7 @@ def _open_browser() -> None:
 if __name__ == "__main__":
     threading.Timer(1.0, _open_browser).start()
     uvicorn.run(
-        "app.webapp:app",
+        app.webapp.app,
         host="127.0.0.1",
         port=8765,
         reload=False,

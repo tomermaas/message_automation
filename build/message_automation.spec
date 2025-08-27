@@ -1,6 +1,8 @@
 # PyInstaller spec for message automation backend
 # This spec bundles the FastAPI server into a standalone executable.
 
+from PyInstaller.utils.hooks import collect_submodules
+
 block_cipher = None
 
 
@@ -9,7 +11,7 @@ a = Analysis(
     pathex=['..'],
     binaries=[],
     datas=[('../frontend/dist', 'frontend/dist'),('../.env', '.')],
-    hiddenimports=[],
+    hiddenimports=collect_submodules('uvicorn'),
     hookspath=[],
     runtime_hooks=[],
     excludes=[],
