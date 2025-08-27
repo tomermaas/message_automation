@@ -10,7 +10,7 @@ import { usePatchMessage } from '../hooks/usePatchMessage'
 import toast from 'react-hot-toast'
 import { FormatBold, FormatItalic, FormatUnderlined, FormatColorText, EmojiEmotions, Undo, Redo } from '@mui/icons-material'
 import data from '@emoji-mart/data'
-import { Picker } from 'emoji-mart'
+import Picker from '@emoji-mart/react'
 
 const FontSize = Extension.create({
   name: 'fontSize',

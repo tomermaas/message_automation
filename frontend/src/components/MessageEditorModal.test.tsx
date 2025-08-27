@@ -14,8 +14,8 @@ vi.mock('react-hot-toast', () => ({
   default: { success: () => {}, error: () => {} },
 }))
 
-vi.mock('emoji-mart', () => ({
-  Picker: () => <div />,
+vi.mock('@emoji-mart/react', () => ({
+  default: () => <div />,
 }))
 
 test('save keeps modal open; save & close closes', async () => {
