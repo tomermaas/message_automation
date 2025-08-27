@@ -11,6 +11,32 @@ if ! command -v makeself >/dev/null 2>&1; then
   exit 1
 fi
 
+# Ensure Python shared library is available for PyInstaller
+PYTHON_LIB=$(python3 - <<'PYTHON'
+import os, sysconfig
+libdir = sysconfig.get_config_var('LIBDIR')
+ldlib = sysconfig.get_config_var('LDLIBRARY')
+path = os.path.join(libdir, ldlib) if libdir and ldlib else ''
+print(path if path and os.path.exists(path) else '')
+PYTHON
+)
+
+if [[ -z "$PYTHON_LIB" ]]; then
+  echo "Python shared library not found. PyInstaller requires libpython for the current interpreter." >&2
+  if command -v apt-get >/dev/null 2>&1; then
+    PY_VER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+    echo "Attempting to install python${PY_VER}-dev..." >&2
+    if command -v sudo >/dev/null 2>&1; then
+      sudo apt-get update && sudo apt-get install -y "python${PY_VER}-dev" || sudo apt-get install -y python3-dev
+    else
+      apt-get update && apt-get install -y "python${PY_VER}-dev" || apt-get install -y python3-dev
+    fi
+  else
+    echo "Please install the appropriate python development package (e.g. python3-dev) and retry." >&2
+    exit 1
+  fi
+fi
+
 pyinstaller build/message_automation.spec --clean
 
 mkdir -p installer

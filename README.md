@@ -32,7 +32,7 @@ Build the frontend and generate a self-contained installer:
 ```bash
 pnpm --dir frontend build
 pip install pyinstaller
-sudo apt-get install -y makeself # or: brew install makeself
+sudo apt-get install -y makeself python3-dev # or: brew install makeself
 scripts/make_installer.sh
 ```
 
