@@ -17,7 +17,13 @@ import os, sysconfig
 libdir = sysconfig.get_config_var('LIBDIR')
 ldlib = sysconfig.get_config_var('LDLIBRARY')
 path = os.path.join(libdir, ldlib) if libdir and ldlib else ''
-print(path if path and os.path.exists(path) else '')
+# Some Python builds expose only a static library (e.g. .a). PyInstaller requires
+# a shared library (.so, .dylib, .dll). Treat static libraries as missing.
+ext = os.path.splitext(ldlib)[1] if ldlib else ''
+if path and os.path.exists(path) and ext not in ('.a', '.lib'):
+    print(path)
+else:
+    print('')
 PYTHON
 )
 
