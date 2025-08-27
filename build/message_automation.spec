@@ -5,10 +5,10 @@ block_cipher = None
 
 
 a = Analysis(
-    ['app/main.py'],
-    pathex=['.'],
+    ['../app/main.py'],
+    pathex=['..'],
     binaries=[],
-    datas=[('frontend/dist', 'frontend/dist'),('.env', '.')],
+    datas=[('../frontend/dist', 'frontend/dist'),('../.env', '.')],
     hiddenimports=[],
     hookspath=[],
     runtime_hooks=[],
