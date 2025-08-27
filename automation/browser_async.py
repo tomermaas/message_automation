@@ -49,11 +49,17 @@ class AsyncKidumSession:
     async def close(self):
         try:
             if self._browser:
-                await self._browser.close()
+                try:
+                    await self._browser.close()
+                except Exception:
+                    pass
         finally:
             self._browser = None
             if self._pw:
-                await self._pw.stop()
+                try:
+                    await self._pw.stop()
+                except Exception:
+                    pass
                 self._pw = None
             self._page = None
             self._jwt = None
