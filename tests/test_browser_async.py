@@ -28,7 +28,11 @@ async def test_login_and_fetch_courses():
     session = AsyncKidumSession(headless=True)
     try:
         try:
-            assert await session.login("311550651", "311550651")
+            username = os.getenv("KIDUM_USERNAME")
+            password = os.getenv("KIDUM_PASSWORD")
+            if not (username and password):
+                pytest.skip("KIDUM_USERNAME and KIDUM_PASSWORD must be set")
+            assert await session.login(username, password)
         except Exception as e:  # pragma: no cover - environment specific
             pytest.skip(f"playwright not available: {e}")
 

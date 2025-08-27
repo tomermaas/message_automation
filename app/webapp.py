@@ -106,7 +106,10 @@ class PatchMessageBody(BaseModel):
 async def _shutdown():
     s = _get_session(False)
     if s:
-        await s.close()
+        try:
+            await s.close()
+        except Exception:
+            pass
 
 @atexit.register
 def _atexit_close():
