@@ -25,14 +25,15 @@ export const api = {
   selectCourse: (course_id: number) =>
     request('/select_course', { method: 'POST', body: JSON.stringify({ course_id }) }),
   messageTypes: (course_id: number) => request(`/message_types?course_id=${course_id}`),
-  messages: (params: { course_id: number; type?: string; search?: string; page?: number; limit?: number }) => {
+  messages: (params: { course_id?: number; type?: string; search?: string; page?: number; limit?: number }) => {
     const q = new URLSearchParams()
-    q.set('course_id', String(params.course_id))
+    if (params.course_id != null) q.set('course_id', String(params.course_id))
     if (params.type && params.type !== 'all') q.set('type', params.type)
     if (params.search) q.set('search', params.search)
     if (params.page) q.set('page', String(params.page))
     if (params.limit) q.set('limit', String(params.limit))
-    return request(`/messages?${q.toString()}`)
+    const qs = q.toString()
+    return request(`/messages${qs ? `?${qs}` : ''}`)
   },
   patchMessage: (id: number, data: any) =>
     request(`/messages/${id}`, {
