@@ -266,13 +266,18 @@ async def select_course(body: SelectCourseBody):
 
 @app.get("/messages")
 async def get_messages(
-    course_id: int,
+    course_id: int | None = None,
     type: str = "all",
     search: str | None = None,
     page: int = 1,
     limit: int = 30,
 ):
-    await _ensure_logged_in()
+    s = await _ensure_logged_in()
+    if course_id is None:
+        if hasattr(s, "get_selected_course_id") and s.get_selected_course_id():
+            course_id = s.get_selected_course_id()
+        else:
+            raise HTTPException(status_code=400, detail="course_id required")
     res = SYNC.list_messages(
         course_id,
         None if type == "all" else type,
