@@ -15,6 +15,7 @@ Message Automation is a desktop-focused utility for synchronising and editing co
   - [Tests](#tests)
 - [Data Storage](#data-storage)
 - [Packaging and Distribution](#packaging-and-distribution)
+- [Docker](#docker)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
@@ -140,6 +141,20 @@ scripts/make_installer.sh
 ```
 
 The script runs PyInstaller using `build/message_automation.spec` and wraps the output with `makeself`.  The resulting `installer/message_automation.run` file extracts the application, installs Playwright dependencies if needed and launches the backend which in turn opens the browser for the user.
+
+## Docker
+
+A Docker image can run the application on Windows, macOS or Linux PCs without a full Python/Node.js setup. Build the image and start the container locally:
+
+```bash
+docker build -t message-automation .
+docker run --rm -p 8765:8765 \
+  -e KIDUM_USERNAME=<your username> \
+  -e KIDUM_PASSWORD=<your password> \
+  message-automation
+```
+
+Then open `http://127.0.0.1:8765` in your browser. The container runs headless and keeps all data inside its filesystem, so mount a volume to persist databases if needed.
 
 ## Troubleshooting
 
