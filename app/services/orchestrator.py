@@ -50,7 +50,38 @@ class SyncOrchestrator:
                 meta=meta,
                 created_at=now,
             )
-        return {"distance": dist, "messages_emitted": len(dist["changes"])}
+        existing_ids = self.messages.student_ids_with_messages(course_id)
+        missing = 0
+        for row in self.distance.list_students(course_id):
+            sid = row["student_id"]
+            if sid in existing_ids:
+                continue
+            text = build_student_message(
+                {
+                    "kind": "inserted",
+                    "student_name": row.get("student_name", ""),
+                    "exam_name": row.get("exam_name"),
+                    "old_gap": None,
+                    "new_gap": row.get("gap"),
+                }
+            )
+            self.messages.upsert_message(
+                course_id=course_id,
+                db_type="distance",
+                student_id=sid,
+                student_name=row.get("student_name", ""),
+                content_html=f"<p>{text}</p>",
+                content_json={
+                    "type": "doc",
+                    "content": [
+                        {"type": "paragraph", "content": [{"type": "text", "text": text}]}
+                    ],
+                },
+                meta=row,
+                created_at=now,
+            )
+            missing += 1
+        return {"distance": dist, "messages_emitted": len(dist["changes"]) + missing}
 
     def list_messages(
         self,

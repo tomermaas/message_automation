@@ -198,5 +198,47 @@ class DistanceSyncer:
             "target_score": target_score,
             "total_score": total_score,
             "gap": gap,
-            "gap_change": gap_change,
-        }
+                "gap_change": gap_change,
+            }
+
+    # ------------------------------------------------------------------
+    def list_students(self, course_id: int) -> List[Dict]:
+        """Return all score-gap rows for ``course_id``."""
+
+        with self.engine.begin() as conn:
+            rows = conn.execute(
+                text(
+                    f"""
+                    SELECT student_id, student_name, last_exam_date, exam_name,
+                           target_score, total_score, gap, gap_change
+                      FROM "{self.schema}".score_gap
+                     WHERE course_id=:course_id
+                    """
+                ),
+                {"course_id": course_id},
+            ).fetchall()
+        data: List[Dict] = []
+        for r in rows:
+            (
+                sid,
+                sname,
+                last_exam_date,
+                exam_name,
+                target_score,
+                total_score,
+                gap,
+                gap_change,
+            ) = r
+            data.append(
+                {
+                    "student_id": sid,
+                    "student_name": sname,
+                    "last_exam_date": last_exam_date,
+                    "exam_name": exam_name,
+                    "target_score": target_score,
+                    "total_score": total_score,
+                    "gap": gap,
+                    "gap_change": gap_change,
+                }
+            )
+        return data
