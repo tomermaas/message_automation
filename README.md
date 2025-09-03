@@ -69,6 +69,7 @@ KIDUM_USERNAME=<your username>
 KIDUM_PASSWORD=<your password>
 LMS_BASE_URL=https://kidum-me.com
 LMS_API_BASE_URL=https://lmsapi.kidum-me.com
+DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/message_automation
 DATA_ROOT=data
 CORS_ORIGINS=http://127.0.0.1:8765,http://localhost:8765
 ```
@@ -116,9 +117,12 @@ teacher_<teacher_id>.messages   -- fetched and edited messages
 teacher_<teacher_id>.score_gap  -- distance/score gap calculations
 ```
 
-Set the connection string via the `DATABASE_URL` environment variable.  The
-per-teacher schema layout allows additional tables to be added in the future
-without affecting other users.
+Set the connection string via the `DATABASE_URL` environment variable (for
+example `postgresql+psycopg://user:pass@localhost:5432/message_automation`).
+Include credentials in the URL; missing passwords will result in a
+`fe_sendauth: no password supplied` error from the driver.  The per-teacher
+schema layout allows additional tables to be added in the future without
+affecting other users.
 
 ## Packaging and Distribution
 
