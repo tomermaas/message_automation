@@ -17,12 +17,16 @@ export default function MessagesPage() {
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<any | null>(null)
 
+  const messages = useMessages({ course_id: courseId, type: typeFilter, search })
+
   useEffect(() => {
     if (!status.data?.logged_in) nav('/')
-    else if (status.data?.selected_id) setCourseId(status.data.selected_id)
-  }, [status.data, nav])
-
-  const messages = useMessages({ course_id: courseId, type: typeFilter, search })
+    else if (status.data?.selected_id && courseId == null) {
+      const id = status.data.selected_id
+      setCourseId(id)
+      api.selectCourse(id).then(() => messages.refetch())
+    }
+  }, [status.data, nav, courseId])
   const allMessages = messages.data?.pages.flatMap(p => p.data) ?? []
 
   return (
