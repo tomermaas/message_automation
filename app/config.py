@@ -6,6 +6,25 @@ from typing import List
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 
+
+def _get_database_url() -> str:
+    """Return a sanitized database URL.
+
+    The default ``.env`` file includes placeholder credentials
+    (``user:pass``) which, if used verbatim, trigger authentication
+    failures when connecting to Postgres.  Detect this case and fall
+    back to a URL without credentials or host so that local
+    environments relying on peer authentication over Unix sockets can
+    function without embedding secrets.
+    """
+
+    raw = os.getenv("DATABASE_URL")
+    if raw:
+        parsed = urlparse(raw)
+        if parsed.username == "user" and parsed.password == "pass":
+            raw = None
+    return raw or "postgresql+psycopg:///message_automation"
+
 # Ensure variables from a local .env file are available before constructing the config
 load_dotenv()
 
@@ -19,10 +38,7 @@ class _Config:
         os.getenv("LMS_API_BASE_URL")
         or os.getenv("KIDUM_API_BASE_URL", "https://lmsapi.kidum-me.com")
     )
-    database_url: str = os.getenv(
-        "DATABASE_URL",
-        "postgresql+psycopg://localhost:5432/message_automation",
-    )
+    database_url: str = field(default_factory=_get_database_url)
     headless: bool = os.getenv("HEADLESS", "true").lower() in ("1", "true", "yes")
     cors_origins: List[str] = field(
         default_factory=lambda: os.getenv(
