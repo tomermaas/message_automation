@@ -12,6 +12,6 @@ def test_placeholder_database_url(monkeypatch):
     importlib.reload(config)
     assert (
         config.CONFIG.database_url
-        == "postgresql+psycopg://localhost:5432/message_automation"
+        == "postgresql+psycopg:///message_automation"
     )
     monkeypatch.delenv("DATABASE_URL")

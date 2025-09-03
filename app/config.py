@@ -13,8 +13,10 @@ def _get_database_url() -> str:
     The default ``.env`` file includes placeholder credentials
     (``user:pass``) which, if used verbatim, trigger authentication
     failures when connecting to Postgres.  Detect this case and fall
-    back to a URL without credentials so local environments that rely
-    on peer authentication can still function out of the box.
+r
+    back to a URL without credentials or host so that local
+    environments relying on peer authentication over Unix sockets can
+    function without embedding secrets.
     """
 
     raw = os.getenv("DATABASE_URL")
@@ -22,7 +24,7 @@ def _get_database_url() -> str:
         parsed = urlparse(raw)
         if parsed.username == "user" and parsed.password == "pass":
             raw = None
-    return raw or "postgresql+psycopg://localhost:5432/message_automation"
+    return raw or "postgresql+psycopg:///message_automation"
 
 # Ensure variables from a local .env file are available before constructing the config
 load_dotenv()
