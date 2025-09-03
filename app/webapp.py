@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app.config import CONFIG
-from automation.browser_async import AsyncKidumSession
+from automation.api_client import KidumApiSession
 
 from app.services.orchestrator import SyncOrchestrator
 from app.services.paths import distance_db_path
@@ -78,15 +78,15 @@ app.add_middleware(
 )
 
 # Single automation session
-_session: Optional[AsyncKidumSession] = None
+_session: Optional[KidumApiSession] = None
 
-def _get_session(create: bool = False) -> Optional[AsyncKidumSession]:
+def _get_session(create: bool = False) -> Optional[KidumApiSession]:
     global _session
     if _session is None and create:
-        _session = AsyncKidumSession()
+        _session = KidumApiSession()
     return _session
 
-async def _ensure_logged_in() -> AsyncKidumSession:
+async def _ensure_logged_in() -> KidumApiSession:
     s = _get_session(False)
     if not s:
         raise HTTPException(status_code=401, detail="Not logged in.")
@@ -158,7 +158,7 @@ async def login(body: LoginBody):
         await _session.close()
         _session = None
 
-    tmp = AsyncKidumSession()
+    tmp = KidumApiSession()
     ok = False
     try:
         ok = await tmp.login(body.username, body.password)
@@ -189,48 +189,27 @@ async def logout():
 async def courses(names_only: bool = False):
     s = await _ensure_logged_in()
 
-    # Try backend API first
     normalized: List[Dict] = []
-    try:
-        raw = await s.api_get_courses()  # returns the LMS payload you showed
-        # Normalize to [{id, name}]
-        for row in (raw or []):
-            cid = row.get("course_id") or row.get("id") or (row.get("courses") or {}).get("id")
-            name = row.get("name") or (row.get("courses") or {}).get("name")
-            if cid and name:
-                try:
-                    cid = int(cid)
-                except Exception:
-                    pass
-                normalized.append({"id": cid, "name": name})
-    except Exception:
-        # fall through to UI scraping
-        normalized = []
+    raw = await s.api_get_courses()
+    for row in (raw or []):
+        cid = row.get("course_id") or row.get("id") or (row.get("courses") or {}).get("id")
+        name = row.get("name") or (row.get("courses") or {}).get("name")
+        if cid and name:
+            try:
+                cid = int(cid)
+            except Exception:
+                pass
+            normalized.append({"id": cid, "name": name})
 
-    if normalized:
-        if names_only:
-            return {
-                "ok": True,
-                "data": [c["name"] for c in normalized],
-                "selected_id": s.get_selected_course_id() if hasattr(s, "get_selected_course_id") else None,
-            }
-        return {
-            "ok": True,
-            "data": normalized,
-            "selected_id": s.get_selected_course_id() if hasattr(s, "get_selected_course_id") else None,
-        }
-
-    # Fallback (UI scrape only returns labels; no IDs available)
-    labels = await s.list_classes()
     if names_only:
         return {
             "ok": True,
-            "data": labels,
+            "data": [c["name"] for c in normalized],
             "selected_id": s.get_selected_course_id() if hasattr(s, "get_selected_course_id") else None,
         }
     return {
         "ok": True,
-        "data": [{"id": None, "name": lbl} for lbl in labels],
+        "data": normalized,
         "selected_id": s.get_selected_course_id() if hasattr(s, "get_selected_course_id") else None,
     }
 
@@ -247,7 +226,7 @@ async def status():
         "selected_id": s.get_selected_course_id() if (logged_in and hasattr(s, "get_selected_course_id")) else None,
     }
 
-# Persist chosen course (ensure these helpers exist on AsyncKidumSession)
+# Persist chosen course
 class SelectCourseBody(BaseModel):
     course_id: int
 

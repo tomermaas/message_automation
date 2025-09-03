@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Dict, Any
 from app.db.storage import CourseStore
-from automation.browser_async import AsyncKidumSession
+from automation.api_client import KidumApiSession
 
 class DataHandler(ABC):
     """
@@ -17,7 +17,7 @@ class DataHandler(ABC):
     @abstractmethod
     async def check_and_sync(
         self,
-        session: AsyncKidumSession,
+        session: KidumApiSession,
         course_id: int,
         store: CourseStore
     ) -> Dict[str, Any]:

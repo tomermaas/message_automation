@@ -1,5 +1,4 @@
 from __future__ import annotations
-import os
 from typing import Optional
 
 from PySide6.QtWidgets import (
@@ -11,16 +10,9 @@ from automation.automation_worker import AutomationWorker
 from ui.class_select_view import ClassSelectView
 
 
-def _env_bool(name: str, default: bool) -> bool:
-    v = os.getenv(name)
-    if v is None:
-        return default
-    return v.strip().lower() in {"1", "true", "yes", "on"}
-
-
 class LoginWindow(QWidget):
     # UI -> Worker (queued)
-    request_login = Signal(str, str, object)
+    request_login = Signal(str, str)
     request_close = Signal()
 
     def __init__(self) -> None:
@@ -95,8 +87,7 @@ class LoginWindow(QWidget):
         self.status_lbl.setText("Signing in… (running in background)")
         self.login_btn.setEnabled(False)
 
-        headless = _env_bool("PLAYWRIGHT_HEADLESS", True)
-        self.request_login.emit(username, password, headless)
+        self.request_login.emit(username, password)
 
     def _on_login_ok(self, display_name: str):
         self.status_lbl.setText(f"Login successful. User: {display_name or '—'}")

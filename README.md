@@ -11,7 +11,6 @@ Message Automation is a desktop-focused utility for synchronising and editing co
 - [Local Development](#local-development)
   - [Backend](#backend)
   - [Frontend](#frontend)
-  - [Browser Automation](#browser-automation)
   - [Tests](#tests)
 - [Data Storage](#data-storage)
 - [Packaging and Distribution](#packaging-and-distribution)
@@ -36,7 +35,7 @@ The FastAPI backend (`app/`) serves HTML routes, REST endpoints and static files
 The frontend (`frontend/`) is built with React, Vite and Tailwind CSS.  It communicates with the backend through REST calls; the base URL is controlled by the `VITE_API_BASE` environment variable.
 
 ### Automation
-Browser automation lives in `automation/` and relies on Playwright.  The `AutomationWorker` class performs login, class enumeration and selection in a background thread so the PySide6 UI remains responsive.
+Automation helpers live in `automation/` and communicate with the LMS via its HTTP API. The `AutomationWorker` class performs login, course enumeration and selection in a background thread so the PySide6 UI remains responsive.
 
 ### Data Layer
 Per-course SQLite databases store messages and distance information.  `app/services/paths.py` computes paths based on the `DATA_ROOT` configuration and optional environment names derived from `LMS_BASE_URL`.
@@ -45,11 +44,11 @@ Per-course SQLite databases store messages and distance information.  `app/servi
 
 ```
 app/           FastAPI application and service layer
-automation/    Playwright based browser automation
+automation/    LMS API helpers and background automation
 frontend/      React + Vite user interface
 ui/            PySide6 desktop windows (login and class selection)
 build/         PyInstaller specification
-scripts/       Helper scripts (packaging, Playwright smoke test)
+scripts/       Helper scripts for packaging and maintenance
 tests/         Python unit and integration tests
 design/        Design assets and mockups
 logic/         Experimentation and prototypes
@@ -59,7 +58,6 @@ logic/         Experimentation and prototypes
 
 - Python 3.11+ with pip
 - Node.js 18+ and [pnpm](https://pnpm.io) for the frontend
-- Playwright browsers (`playwright install`) when running live tests or packaging
 - `makeself` for bundling the installer (`apt-get install -y makeself` or `brew install makeself`)
 
 ## Configuration
@@ -72,7 +70,6 @@ KIDUM_PASSWORD=<your password>
 LMS_BASE_URL=https://kidum-me.com
 LMS_API_BASE_URL=https://lmsapi.kidum-me.com
 DATA_ROOT=data
-HEADLESS=true
 CORS_ORIGINS=http://127.0.0.1:8765,http://localhost:8765
 ```
 
@@ -99,10 +96,6 @@ pnpm dev
 
 `VITE_API_BASE` controls which backend URL the frontend talks to (defaults to `http://127.0.0.1:8765`).
 
-### Browser Automation
-
-Automation uses Playwright with optional GUI elements hidden by setting `HEADLESS=true`.  `scripts/smoke_playwright.py` provides a quick manual login check against the LMS.
-
 ### Tests
 
 Backend and service tests run with `pytest`.  Set dummy credentials to satisfy login checks:
@@ -112,8 +105,6 @@ export KIDUM_USERNAME=dummy
 export KIDUM_PASSWORD=dummy
 pytest
 ```
-
-Live browser tests require real credentials and Playwright support.  Enable them with `RUN_LIVE_BROWSER_TEST=1`.
 
 ## Data Storage
 
@@ -139,12 +130,11 @@ sudo apt-get install -y makeself python3-dev  # or: brew install makeself
 scripts/make_installer.sh
 ```
 
-The script runs PyInstaller using `build/message_automation.spec` and wraps the output with `makeself`.  The resulting `installer/message_automation.run` file extracts the application, installs Playwright dependencies if needed and launches the backend which in turn opens the browser for the user.
+The script runs PyInstaller using `build/message_automation.spec` and wraps the output with `makeself`.  The resulting `installer/message_automation.run` file extracts the application and launches the backend which in turn opens the browser for the user.
 
 ## Troubleshooting
 
 - Missing Python headers during packaging → install the appropriate `python3-dev` package.
-- Ensure Playwright browsers are installed before running live tests or packaged builds.
 - Avoid committing the `dist/` and `installer/` folders; they are generated during packaging.
 
 ## License

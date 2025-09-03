@@ -22,8 +22,8 @@ class DummySession:
 
 def test_failed_login_clears_session(monkeypatch):
     dummy = DummySession(ok=False)
-    # Patch AsyncKidumSession to return our dummy session
-    monkeypatch.setattr(webapp, "AsyncKidumSession", lambda: dummy)
+    # Patch KidumApiSession to return our dummy session
+    monkeypatch.setattr(webapp, "KidumApiSession", lambda: dummy)
     client = TestClient(webapp.app)
 
     # Attempt login with bad credentials
