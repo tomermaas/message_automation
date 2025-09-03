@@ -52,7 +52,16 @@ export function FilterBar({ courseId, setCourseId, typeFilter, setTypeFilter, se
       />
       <button
         className="px-3 py-1 bg-primary text-white rounded hover:brightness-110 transition focus-visible:outline-primary focus-visible:outline-2"
-        onClick={onRefresh}
+        onClick={() => {
+          if (courseId == null) {
+            toast.error('בחר קורס')
+            return
+          }
+          api
+            .selectCourse(courseId)
+            .then(() => onRefresh())
+            .catch(err => toast.error(err.message))
+        }}
       >
         רענון
       </button>

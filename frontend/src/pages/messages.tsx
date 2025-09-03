@@ -46,17 +46,8 @@ export default function MessagesPage() {
         search={search}
         setSearch={setSearch}
         onRefresh={() => {
-          if (courseId == null) {
-            toast.error('בחר קורס')
-            return
-          }
-          api
-            .selectCourse(courseId)
-            .then(() => {
-              messages.refetch()
-              toast.success('רשימה עודכנה')
-            })
-            .catch(err => toast.error(err.message))
+          messages.refetch()
+          toast.success('רשימה עודכנה')
         }}
       />
       <div className="p-4 grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px,1fr))' }}>
