@@ -21,7 +21,7 @@ class _Config:
     )
     database_url: str = os.getenv(
         "DATABASE_URL",
-        "postgresql://localhost:5432/message_automation",
+        "postgresql+psycopg://localhost:5432/message_automation",
     )
     headless: bool = os.getenv("HEADLESS", "true").lower() in ("1", "true", "yes")
     cors_origins: List[str] = field(

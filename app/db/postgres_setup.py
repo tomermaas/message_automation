@@ -27,7 +27,16 @@ from sqlalchemy.engine import Engine
 
 
 def get_engine(url: str) -> Engine:
-    """Return a SQLAlchemy engine for ``url``."""
+    """Return a SQLAlchemy engine for ``url``.
+
+    SQLAlchemy defaults to the legacy ``psycopg2`` driver when the scheme is
+    ``postgresql://``.  The project depends on the newer ``psycopg`` driver, so
+    upgrade the URL if no explicit driver is provided.
+    """
+
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+
     return create_engine(url, pool_pre_ping=True)
 
 
