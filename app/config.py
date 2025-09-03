@@ -13,6 +13,7 @@ def _get_database_url() -> str:
     The default ``.env`` file includes placeholder credentials
     (``user:pass``) which, if used verbatim, trigger authentication
     failures when connecting to Postgres.  Detect this case and fall
+r
     back to a URL without credentials or host so that local
     environments relying on peer authentication over Unix sockets can
     function without embedding secrets.
