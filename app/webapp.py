@@ -217,7 +217,7 @@ async def courses(names_only: bool = False):
 @app.get("/status")
 async def status():
     s = _get_session(False)
-    logged_in = bool(s and s.get_logged_in_display_name())
+    logged_in = bool(s and s.get_teacher_id())
     return {
         "ok": True,
         "logged_in": logged_in,

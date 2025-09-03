@@ -44,8 +44,13 @@ async def login(username: str, password: str, client: Optional[httpx.AsyncClient
         data = resp.json()
 
         token = data.get("token")
-        teacher_id = data.get("data", {}).get("id")
-        display_name = data.get("data", {}).get("name")
+        user_data = data.get("data", {})
+        teacher_id = user_data.get("id")
+        display_name = (
+            user_data.get("name")
+            or user_data.get("full_name")
+            or (f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip() or None)
+        )
 
         if not token or teacher_id is None:
             raise ValueError("token or teacher_id missing in response")
