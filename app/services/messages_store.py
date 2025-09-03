@@ -43,7 +43,7 @@ class MessagesStore:
         content_json_str = json.dumps(content_json, ensure_ascii=False)
         stmt = text(
             f"""
-            INSERT INTO "{self.schema}".messages (
+            INSERT INTO "{self.schema}".messages AS msg (
                 course_id, db_type, student_id, student_name,
                 created_at, updated_at, content_html, content_json, source, meta
             ) VALUES (
@@ -54,12 +54,12 @@ class MessagesStore:
                 student_name=excluded.student_name,
                 updated_at=excluded.updated_at,
                 meta=excluded.meta,
-                content_html=CASE WHEN "{self.schema}".messages.source='auto'
-                                  THEN excluded.content_html ELSE "{self.schema}".messages.content_html END,
-                content_json=CASE WHEN "{self.schema}".messages.source='auto'
-                                   THEN excluded.content_json ELSE "{self.schema}".messages.content_json END,
-                source=CASE WHEN "{self.schema}".messages.source='auto'
-                            THEN excluded.source ELSE "{self.schema}".messages.source END
+                content_html=CASE WHEN msg.source='auto'
+                                  THEN excluded.content_html ELSE msg.content_html END,
+                content_json=CASE WHEN msg.source='auto'
+                                   THEN excluded.content_json ELSE msg.content_json END,
+                source=CASE WHEN msg.source='auto'
+                            THEN excluded.source ELSE msg.source END
             """
         )
         with self.engine.begin() as conn:
