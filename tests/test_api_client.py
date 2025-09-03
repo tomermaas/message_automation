@@ -91,3 +91,34 @@ async def test_distance_details_merges_multiple_lists():
         assert await sess.login("u", "p")
         dist = await sess.api_get_distance_details(1)
     assert dist == multi_payload["data"]["new"] + multi_payload["data"]["updated"]
+
+
+@pytest.mark.asyncio
+async def test_distance_details_handles_nested_lists():
+    """Lists nested inside objects (e.g. ``{"new": {"rows": [...]}}``) are flattened."""
+    login_payload = {"status": True, "token": "tok", "data": {"id": 9, "name": "T"}}
+    nested_lists_payload = {
+        "status": True,
+        "data": {
+            "new": {"rows": [{"student_id": "s0"}]},
+            "updated": {"rows": [{"student_id": "s1"}]},
+        },
+    }
+
+    async def handler(request):
+        if request.url.path == "/api/client-login":
+            return httpx.Response(200, json=login_payload)
+        if request.url.path == "/api/get-distance-details":
+            return httpx.Response(200, json=nested_lists_payload)
+        raise AssertionError(f"unexpected path: {request.url.path}")
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        sess = api_client.KidumApiSession(client)
+        assert await sess.login("u", "p")
+        dist = await sess.api_get_distance_details(1)
+    expected = (
+        nested_lists_payload["data"]["new"]["rows"]
+        + nested_lists_payload["data"]["updated"]["rows"]
+    )
+    assert dist == expected

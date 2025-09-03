@@ -135,11 +135,23 @@ class KidumApiSession:
         # processed.  This prevents silent failures when one of the lists is
         # empty or ignored by older client logic.
         if isinstance(data, dict):
-            combined: List[Dict[str, Any]] = []
-            for value in data.values():
-                if isinstance(value, list):
-                    combined.extend(value)
-            data = combined
+            # The API keeps evolving and may nest the relevant row lists under
+            # multiple layers (e.g. ``{"new": {"rows": [...]}}``).  Traverse
+            # the structure and gather every list encountered so no entries are
+            # missed regardless of the exact shape returned by the server.
+            def _gather(obj: Any) -> List[Dict[str, Any]]:
+                collected: List[Dict[str, Any]] = []
+                if isinstance(obj, list):
+                    for item in obj:
+                        if isinstance(item, dict):
+                            collected.append(item)
+                    return collected
+                if isinstance(obj, dict):
+                    for val in obj.values():
+                        collected.extend(_gather(val))
+                return collected
+
+            data = _gather(data)
         elif not isinstance(data, list):
             data = []
         return data
