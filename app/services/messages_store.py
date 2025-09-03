@@ -41,9 +41,10 @@ class MessagesStore:
         ts = int(time.time()) if created_at is None else created_at
         meta_json = json.dumps(meta or {}, ensure_ascii=False)
         content_json_str = json.dumps(content_json, ensure_ascii=False)
+        msg_table = f'"{self.schema}".messages'
         stmt = text(
             f"""
-            INSERT INTO "{self.schema}".messages AS msg (
+            INSERT INTO {msg_table} (
                 course_id, db_type, student_id, student_name,
                 created_at, updated_at, content_html, content_json, source, meta
             ) VALUES (
@@ -54,12 +55,12 @@ class MessagesStore:
                 student_name=excluded.student_name,
                 updated_at=excluded.updated_at,
                 meta=excluded.meta,
-                content_html=CASE WHEN msg.source='auto'
-                                  THEN excluded.content_html ELSE msg.content_html END,
-                content_json=CASE WHEN msg.source='auto'
-                                   THEN excluded.content_json ELSE msg.content_json END,
-                source=CASE WHEN msg.source='auto'
-                            THEN excluded.source ELSE msg.source END
+                content_html=CASE WHEN {msg_table}.source='auto'
+                                  THEN excluded.content_html ELSE {msg_table}.content_html END,
+                content_json=CASE WHEN {msg_table}.source='auto'
+                                   THEN excluded.content_json ELSE {msg_table}.content_json END,
+                source=CASE WHEN {msg_table}.source='auto'
+                            THEN excluded.source ELSE {msg_table}.source END
             """
         )
         with self.engine.begin() as conn:
