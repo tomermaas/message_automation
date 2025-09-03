@@ -81,6 +81,20 @@ class MessagesStore:
             )
 
     # ------------------------------------------------------------------
+    def student_ids_with_messages(self, course_id: int, db_type: str = "distance"):
+        """Return the set of student IDs that already have messages."""
+
+        with self.engine.begin() as conn:
+            rows = conn.execute(
+                text(
+                    f'SELECT student_id FROM "{self.schema}".messages '
+                    'WHERE course_id=:course_id AND db_type=:db_type'
+                ),
+                {"course_id": course_id, "db_type": db_type},
+            ).fetchall()
+        return {r[0] for r in rows}
+
+    # ------------------------------------------------------------------
     def list_all(
         self,
         course_id: int,
