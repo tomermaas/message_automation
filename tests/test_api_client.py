@@ -43,3 +43,51 @@ async def test_session_helpers():
         assert courses == courses_payload["data"]
         dist = await sess.api_get_distance_details(1)
         assert dist == dist_payload["data"]
+
+
+@pytest.mark.asyncio
+async def test_distance_details_nested_structure():
+    """The distance details endpoint may wrap the list in a nested object."""
+    login_payload = {"status": True, "token": "tok", "data": {"id": 9, "name": "T"}}
+    nested_payload = {"status": True, "data": {"rows": [{"student_id": "s1"}]}}
+
+    async def handler(request):
+        if request.url.path == "/api/client-login":
+            return httpx.Response(200, json=login_payload)
+        if request.url.path == "/api/get-distance-details":
+            return httpx.Response(200, json=nested_payload)
+        raise AssertionError(f"unexpected path: {request.url.path}")
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        sess = api_client.KidumApiSession(client)
+        assert await sess.login("u", "p")
+        dist = await sess.api_get_distance_details(1)
+    assert dist == nested_payload["data"]["rows"]
+
+
+@pytest.mark.asyncio
+async def test_distance_details_merges_multiple_lists():
+    """Multiple list values should be combined (new and updated entries)."""
+    login_payload = {"status": True, "token": "tok", "data": {"id": 9, "name": "T"}}
+    multi_payload = {
+        "status": True,
+        "data": {
+            "new": [{"student_id": "s0"}],
+            "updated": [{"student_id": "s1"}],
+        },
+    }
+
+    async def handler(request):
+        if request.url.path == "/api/client-login":
+            return httpx.Response(200, json=login_payload)
+        if request.url.path == "/api/get-distance-details":
+            return httpx.Response(200, json=multi_payload)
+        raise AssertionError(f"unexpected path: {request.url.path}")
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        sess = api_client.KidumApiSession(client)
+        assert await sess.login("u", "p")
+        dist = await sess.api_get_distance_details(1)
+    assert dist == multi_payload["data"]["new"] + multi_payload["data"]["updated"]
