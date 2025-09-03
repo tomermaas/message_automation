@@ -1,26 +1,28 @@
 from __future__ import annotations
-from pathlib import Path
+
 from typing import Dict
 
+import time
+from sqlalchemy.engine import Engine
+
+from app.config import CONFIG
+from app.db.postgres_setup import ensure_teacher_schema, get_engine
+from logic.messages import build_student_message
 from .distance_syncer import DistanceSyncer
 from .messages_store import MessagesStore
-from logic.messages import build_student_message
-import time
+
 
 class SyncOrchestrator:
-    def __init__(self, data_root: Path):
-        self.root = Path(data_root)
-        self.distance = DistanceSyncer(self.root)
-        self.messages = MessagesStore(self.root)
+    def __init__(self, teacher_id: str, engine: Engine | None = None):
+        self.teacher_id = str(teacher_id)
+        self.engine = engine or get_engine(CONFIG.database_url)
+        ensure_teacher_schema(self.engine, self.teacher_id)
+        self.distance = DistanceSyncer(self.teacher_id, self.engine)
+        self.messages = MessagesStore(self.teacher_id, self.engine)
 
     async def sync_all(self, session, course_id: int) -> Dict:
-        """
-        Sync distance, then emit messages for inserts/updates.
-        """
-        # Distance
+        """Sync distance data then emit messages for inserts/updates."""
         dist = await self.distance.sync_and_collect(session, course_id)
-
-        # Emit/update messages
         now = int(time.time())
         for (kind, sname, ename, old_gap, new_gap, sid) in dist["changes"]:
             text = build_student_message(
@@ -32,7 +34,6 @@ class SyncOrchestrator:
                     "new_gap": new_gap,
                 }
             )
-
             meta = self.distance.get_student(course_id, sid) or {}
             self.messages.upsert_message(
                 course_id=course_id,
@@ -49,11 +50,7 @@ class SyncOrchestrator:
                 meta=meta,
                 created_at=now,
             )
-
-        return {
-            "distance": dist,
-            "messages_emitted": len(dist["changes"]),
-        }
+        return {"distance": dist, "messages_emitted": len(dist["changes"])}
 
     def list_messages(
         self,
@@ -84,23 +81,11 @@ class SyncOrchestrator:
         )
 
     async def run(self, session, course_id: int) -> Dict:
-        """Backward compatible wrapper around :func:`sync_all`.
-
-        The web application historically expected a ``run`` coroutine on the
-        orchestrator instance.  The implementation was later renamed to
-        ``sync_all`` but the debug endpoint still imports and calls ``run``.
-        Providing this thin wrapper preserves the previous API and simply
-        forwards the call to :func:`sync_all`.
-        """
+        """Backward compatible wrapper around :func:`sync_all`."""
         return await self.sync_all(session, course_id)
 
 
-def create_orchestrator() -> SyncOrchestrator:
-    """Factory used by the web layer to lazily construct a synchronizer.
-
-    The factory mirrors the global ``SYNC`` instance in ``app.webapp`` and is
-    needed by the debug endpoint which imports ``create_orchestrator``.
-    """
-    from app.config import CONFIG
-
-    return SyncOrchestrator(Path(CONFIG.data_root))
+def create_orchestrator(teacher_id: str) -> SyncOrchestrator:
+    """Factory used by the web layer to lazily construct a synchronizer."""
+    engine = get_engine(CONFIG.database_url)
+    return SyncOrchestrator(str(teacher_id), engine)

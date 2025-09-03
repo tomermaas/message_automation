@@ -108,15 +108,17 @@ pytest
 
 ## Data Storage
 
-All data remains on the local machine.  `DATA_ROOT` defaults to `data/` and contains per-course directories:
+Data is stored in a PostgreSQL database.  Each teacher is isolated in a
+dedicated schema named `teacher_<teacher_id>` which contains the base tables:
 
 ```
-<DATA_ROOT>/courses/<teacher_id>/<course_id>/
-    distance.db   # distance calculations
-    messages.db   # fetched and edited messages
+teacher_<teacher_id>.messages   -- fetched and edited messages
+teacher_<teacher_id>.score_gap  -- distance/score gap calculations
 ```
 
-Databases are created on demand with WAL journaling for safe concurrent access.
+Set the connection string via the `DATABASE_URL` environment variable.  The
+per-teacher schema layout allows additional tables to be added in the future
+without affecting other users.
 
 ## Packaging and Distribution
 

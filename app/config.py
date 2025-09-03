@@ -19,6 +19,10 @@ class _Config:
         os.getenv("LMS_API_BASE_URL")
         or os.getenv("KIDUM_API_BASE_URL", "https://lmsapi.kidum-me.com")
     )
+    database_url: str = os.getenv(
+        "DATABASE_URL",
+        "postgresql://localhost:5432/message_automation",
+    )
     headless: bool = os.getenv("HEADLESS", "true").lower() in ("1", "true", "yes")
     cors_origins: List[str] = field(
         default_factory=lambda: os.getenv(
