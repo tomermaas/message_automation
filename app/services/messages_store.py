@@ -1,118 +1,28 @@
 from __future__ import annotations
 
-"""Persistence layer for student messages.
-
-This module stores per-course messages in a SQLite database.  The schema is
-aligned with the requirements of the new Messages UI and keeps both the HTML
-representation of the message and the TipTap JSON document used by the
-frontend editor.  A JSON ``meta`` column is also available for arbitrary
-type‑specific metadata (e.g. distance statistics).
-"""
+"""PostgreSQL-backed persistence layer for student messages."""
 
 import json
-import sqlite3
 import time
-from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, List, Optional
+
+from sqlalchemy import text
+from sqlalchemy.engine import Engine
 
 from app.config import CONFIG
+from app.db.postgres_setup import ensure_teacher_schema, get_engine
 
 
 class MessagesStore:
-    """Light‑weight wrapper around a per‑course SQLite database."""
+    """Store and retrieve messages in the per-teacher schema."""
 
-    def __init__(self, data_root: Path):
-        self.root = Path(data_root)
-
-    # ------------------------------------------------------------------
-    # helpers
-    def _db_path(self, course_id: int) -> Path:
-        p = self.root / "courses" / str(course_id)
-        p.mkdir(parents=True, exist_ok=True)
-        fname = f"messages_{CONFIG.env}.db" if CONFIG.env else "messages.db"
-        return p / fname
-
-    def _conn(self, course_id: int) -> sqlite3.Connection:
-        path = self._db_path(course_id)
-        conn = sqlite3.connect(path)
-        conn.execute("PRAGMA journal_mode=WAL;")
-        return conn
-
-    def ensure_schema(self, course_id: int) -> None:
-        """Create or upgrade the messages schema for ``course_id``.
-
-        Older versions of the database did not include a ``course_id`` column
-        because each course used its own SQLite file.  The newer schema embeds
-        the course id in every row and uses it in the indices.  This helper
-        therefore needs to both create a fresh schema and upgrade existing
-        databases which still use the legacy layout.
-        """
-
-        with self._conn(course_id) as conn:
-            # Create table if it does not exist.  ``course_id`` is part of the
-            # canonical schema but older databases may miss it.
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS messages (
-                    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                    course_id     INTEGER NOT NULL,
-                    db_type       TEXT    NOT NULL,
-                    student_id    TEXT    NOT NULL,
-                    student_name  TEXT    NOT NULL,
-                    created_at    INTEGER NOT NULL,
-                    updated_at    INTEGER NOT NULL,
-                    content_html  TEXT    NOT NULL,
-                    content_json  TEXT    NOT NULL,
-                    source        TEXT    NOT NULL DEFAULT 'auto',
-                    meta          TEXT
-                )
-                """,
-            )
-
-            # Upgrade legacy databases lacking columns introduced in newer
-            # versions of the schema.  ``course_id`` was added when the
-            # database moved from one file per course to a shared layout,
-            # while ``updated_at`` was added to support tracking manual edits.
-            cols = {r[1] for r in conn.execute("PRAGMA table_info(messages)")}
-            if "course_id" not in cols:
-                conn.execute(
-                    f"ALTER TABLE messages ADD COLUMN course_id INTEGER NOT NULL DEFAULT {course_id}"
-                )
-                # Ensure existing rows get the proper course id value.
-                conn.execute("UPDATE messages SET course_id=?", (course_id,))
-
-            # Legacy databases may also lack ``content_html`` which is used by
-            # the API responses and therefore must exist to avoid query
-            # failures.  Add the column with a sensible default when missing.
-            if "content_html" not in cols:
-                conn.execute(
-                    "ALTER TABLE messages ADD COLUMN content_html TEXT NOT NULL DEFAULT ''"
-                )
-
-            # Older databases may also miss the ``updated_at`` column.  When
-            # upgrading we add it and backfill its value with ``created_at`` so
-            # existing rows remain consistent with the new schema.
-            if "updated_at" not in cols:
-                conn.execute(
-                    "ALTER TABLE messages ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0"
-                )
-                conn.execute("UPDATE messages SET updated_at=created_at")
-
-            # Recreate indices with the correct column list.  Dropping first
-            # handles upgrades from older schemas where the indices referenced
-            # only ``db_type`` and ``student_id``.
-            conn.execute("DROP INDEX IF EXISTS idx_messages_unique")
-            conn.execute("DROP INDEX IF EXISTS idx_messages_type")
-            conn.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_unique ON messages(course_id, db_type, student_id)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_messages_type ON messages(course_id, db_type)"
-            )
-            conn.commit()
+    def __init__(self, teacher_id: str, engine: Engine | None = None) -> None:
+        self.teacher_id = str(teacher_id)
+        self.engine = engine or get_engine(CONFIG.database_url)
+        ensure_teacher_schema(self.engine, self.teacher_id)
+        self.schema = f"teacher_{self.teacher_id}"
 
     # ------------------------------------------------------------------
-    # basic operations
     def upsert_message(
         self,
         *,
@@ -126,49 +36,48 @@ class MessagesStore:
         meta: Optional[Dict] = None,
         created_at: Optional[int] = None,
     ) -> None:
-        """Insert or update a message row.
+        """Insert or update a message row."""
 
-        If a message already exists for the ``(course_id, db_type, student_id)``
-        key the row is updated.  ``created_at`` is preserved on conflict to
-        reflect the original timestamp while ``updated_at`` is always refreshed.
-        Content is replaced only when ``source`` is ``"auto"`` on the existing
-        row, allowing manual edits to persist across synchronisations.
-        """
-
-        self.ensure_schema(course_id)
         ts = int(time.time()) if created_at is None else created_at
         meta_json = json.dumps(meta or {}, ensure_ascii=False)
         content_json_str = json.dumps(content_json, ensure_ascii=False)
-
-        with self._conn(course_id) as conn:
-            conn.execute(
-                """
-                INSERT INTO messages (
-                    course_id, db_type, student_id, student_name,
-                    created_at, updated_at, content_html, content_json, source, meta
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(course_id, db_type, student_id) DO UPDATE SET
-                    student_name=excluded.student_name,
-                    updated_at=excluded.updated_at,
-                    meta=excluded.meta,
-                    content_html=CASE WHEN messages.source='auto' THEN excluded.content_html ELSE messages.content_html END,
-                    content_json=CASE WHEN messages.source='auto' THEN excluded.content_json ELSE messages.content_json END,
-                    source=CASE WHEN messages.source='auto' THEN excluded.source ELSE messages.source END
-                """,
-                (
-                    course_id,
-                    db_type,
-                    student_id,
-                    student_name,
-                    ts,
-                    ts,
-                    content_html,
-                    content_json_str,
-                    source,
-                    meta_json,
-                ),
+        stmt = text(
+            f"""
+            INSERT INTO "{self.schema}".messages (
+                course_id, db_type, student_id, student_name,
+                created_at, updated_at, content_html, content_json, source, meta
+            ) VALUES (
+                :course_id, :db_type, :student_id, :student_name,
+                :created_at, :updated_at, :content_html, :content_json, :source, :meta
             )
-            conn.commit()
+            ON CONFLICT (course_id, db_type, student_id) DO UPDATE SET
+                student_name=excluded.student_name,
+                updated_at=excluded.updated_at,
+                meta=excluded.meta,
+                content_html=CASE WHEN {self.schema}.messages.source='auto'
+                                  THEN excluded.content_html ELSE {self.schema}.messages.content_html END,
+                content_json=CASE WHEN {self.schema}.messages.source='auto'
+                                   THEN excluded.content_json ELSE {self.schema}.messages.content_json END,
+                source=CASE WHEN {self.schema}.messages.source='auto'
+                            THEN excluded.source ELSE {self.schema}.messages.source END
+            """
+        )
+        with self.engine.begin() as conn:
+            conn.execute(
+                stmt,
+                {
+                    "course_id": course_id,
+                    "db_type": db_type,
+                    "student_id": student_id,
+                    "student_name": student_name,
+                    "created_at": ts,
+                    "updated_at": ts,
+                    "content_html": content_html,
+                    "content_json": content_json_str,
+                    "source": source,
+                    "meta": meta_json,
+                },
+            )
 
     # ------------------------------------------------------------------
     def list_all(
@@ -180,57 +89,42 @@ class MessagesStore:
         page: int = 1,
         limit: int = 30,
     ) -> Dict:
-        """Return paginated messages for a course.
-
-        The return value is a dictionary with ``rows`` and ``total`` entries.
-        """
-
-        self.ensure_schema(course_id)
-        offset = max(page - 1, 0) * limit
-        clauses: List[str] = ["course_id=?"]
-        params: List[object] = [course_id]
-        if msg_type and msg_type != "all":
-            clauses.append("db_type=?")
-            params.append(msg_type)
+        offset = (page - 1) * limit
+        where = ["course_id = :course_id"]
+        params = {"course_id": course_id, "limit": limit, "offset": offset}
+        if msg_type:
+            where.append("db_type = :db_type")
+            params["db_type"] = msg_type
         if search:
-            clauses.append("student_name LIKE ?")
-            params.append(f"%{search}%")
-        where = " AND ".join(clauses)
-
-        with self._conn(course_id) as conn:
-            cols = {r[1] for r in conn.execute("PRAGMA table_info(messages)")}
-            select_cols = [
-                "id",
-                "course_id",
-                "db_type",
-                "student_id",
-                "student_name",
-                "created_at",
-                "updated_at",
-            ]
-            if "content_html" in cols:
-                select_cols.append("content_html")
-            else:
-                # Legacy databases may miss this column; provide an empty placeholder
-                select_cols.append("'' AS content_html")
-            select_cols += ["content_json", "source", "meta"]
-            base_query = (
-                "SELECT " + ", ".join(select_cols) + " FROM messages WHERE " + where
-            )
-
+            where.append("student_name ILIKE :search")
+            params["search"] = f"%{search}%"
+        where_sql = " AND ".join(where)
+        with self.engine.begin() as conn:
             total = conn.execute(
-                f"SELECT COUNT(*) FROM messages WHERE {where}", params
-            ).fetchone()[0]
+                text(
+                    f'SELECT COUNT(*) FROM "{self.schema}".messages WHERE {where_sql}'
+                ),
+                params,
+            ).scalar()
             rows = conn.execute(
-                base_query + " ORDER BY student_name COLLATE NOCASE LIMIT ? OFFSET ?",
-                (*params, limit, offset),
+                text(
+                    f"""
+                    SELECT id, course_id, db_type, student_id, student_name,
+                           created_at, updated_at, content_html, content_json,
+                           source, meta
+                      FROM "{self.schema}".messages
+                     WHERE {where_sql}
+                  ORDER BY student_name
+                     LIMIT :limit OFFSET :offset
+                    """
+                ),
+                params,
             ).fetchall()
-
         data: List[Dict] = []
         for row in rows:
             (
                 mid,
-                course_id,
+                cid,
                 db_type,
                 sid,
                 sname,
@@ -244,7 +138,7 @@ class MessagesStore:
             data.append(
                 {
                     "id": mid,
-                    "course_id": course_id,
+                    "course_id": cid,
                     "db_type": db_type,
                     "student_id": sid,
                     "student_name": sname,
@@ -256,19 +150,22 @@ class MessagesStore:
                     "meta": json.loads(meta_json or "{}"),
                 }
             )
-
         types_present = sorted({r[2] for r in rows})
-        return {"rows": data, "total": total, "types_present": types_present}
+        return {"rows": data, "total": total or 0, "types_present": types_present}
 
+    # ------------------------------------------------------------------
     def list_types(self, course_id: int) -> List[str]:
-        self.ensure_schema(course_id)
-        with self._conn(course_id) as conn:
+        with self.engine.begin() as conn:
             rows = conn.execute(
-                "SELECT DISTINCT db_type FROM messages WHERE course_id=? ORDER BY db_type",
-                (course_id,),
+                text(
+                    f'SELECT DISTINCT db_type FROM "{self.schema}".messages '
+                    'WHERE course_id=:cid ORDER BY db_type'
+                ),
+                {"cid": course_id},
             ).fetchall()
         return [r[0] for r in rows]
 
+    # ------------------------------------------------------------------
     def update_message(
         self,
         course_id: int,
@@ -278,33 +175,38 @@ class MessagesStore:
         content_json: Dict,
         source: str = "manual",
     ) -> Dict:
-        """Update a message's content and return the updated row."""
-
-        self.ensure_schema(course_id)
         now = int(time.time())
-        json_str = json.dumps(content_json, ensure_ascii=False)
-        with self._conn(course_id) as conn:
-            cur = conn.execute(
-                """
-                UPDATE messages
-                   SET content_html=?, content_json=?, updated_at=?, source=?
-                 WHERE id=? AND course_id=?
-                """,
-                (content_html, json_str, now, source, msg_id, course_id),
-            )
-            if cur.rowcount == 0:
-                raise KeyError(msg_id)
-            conn.commit()
+        content_json_str = json.dumps(content_json, ensure_ascii=False)
+        stmt = text(
+            f"""
+            UPDATE "{self.schema}".messages
+               SET content_html=:content_html,
+                   content_json=:content_json,
+                   updated_at=:updated_at,
+                   source=:source
+             WHERE id=:id AND course_id=:course_id
+         RETURNING id, course_id, db_type, student_id, student_name,
+                   created_at, updated_at, content_html, content_json,
+                   source, meta
+            """
+        )
+        with self.engine.begin() as conn:
             row = conn.execute(
-                "SELECT id, course_id, db_type, student_id, student_name, created_at,"
-                " updated_at, content_html, content_json, source, meta"
-                " FROM messages WHERE id=?",
-                (msg_id,),
+                stmt,
+                {
+                    "content_html": content_html,
+                    "content_json": content_json_str,
+                    "updated_at": now,
+                    "source": source,
+                    "id": msg_id,
+                    "course_id": course_id,
+                },
             ).fetchone()
-
+        if not row:
+            raise KeyError(msg_id)
         (
             mid,
-            course_id,
+            cid,
             db_type,
             sid,
             sname,
@@ -317,7 +219,7 @@ class MessagesStore:
         ) = row
         return {
             "id": mid,
-            "course_id": course_id,
+            "course_id": cid,
             "db_type": db_type,
             "student_id": sid,
             "student_name": sname,
@@ -328,4 +230,3 @@ class MessagesStore:
             "source": source,
             "meta": json.loads(meta_json or "{}"),
         }
-

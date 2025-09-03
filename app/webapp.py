@@ -17,13 +17,8 @@ from pydantic import BaseModel
 from app.config import CONFIG
 from automation.api_client import KidumApiSession
 
-from app.services.orchestrator import SyncOrchestrator
-from app.services.paths import distance_db_path
-from app.db.storage import CourseStore
-
-import sqlite3, html
+from app.services.orchestrator import create_orchestrator
 app = FastAPI()
-SYNC = SyncOrchestrator(Path(CONFIG.data_root))
 
 # Frontend root directory
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -238,7 +233,8 @@ async def select_course(body: SelectCourseBody):
     s.set_selected_course_id(body.course_id)
 
     # RUN SYNC NOW so messages are generated
-    summary = await SYNC.sync_all(s, body.course_id)
+    sync = create_orchestrator(s.get_teacher_id())
+    summary = await sync.sync_all(s, body.course_id)
 
     return {"ok": True, "selected_id": s.get_selected_course_id(), "summary": summary}
 
@@ -257,7 +253,8 @@ async def get_messages(
             course_id = s.get_selected_course_id()
         else:
             raise HTTPException(status_code=400, detail="course_id required")
-    res = SYNC.list_messages(
+    sync = create_orchestrator(s.get_teacher_id())
+    res = sync.list_messages(
         course_id,
         None if type == "all" else type,
         search=search,
@@ -276,8 +273,9 @@ async def get_messages(
 
 @app.get("/message_types")
 async def get_message_types(course_id: int):
-    await _ensure_logged_in()
-    types = SYNC.list_message_types(course_id)
+    s = await _ensure_logged_in()
+    sync = create_orchestrator(s.get_teacher_id())
+    types = sync.list_message_types(course_id)
     return {"ok": True, "types": types}
 
 
@@ -320,7 +318,8 @@ async def patch_message(msg_id: int, body: PatchMessageBody):
     )
 
     try:
-        row = SYNC.update_message(
+        sync = create_orchestrator(s.get_teacher_id())
+        row = sync.update_message(
             course_id,
             msg_id,
             content_html=clean_html,
@@ -337,83 +336,4 @@ async def message_history(msg_id: int):
     # History tracking not yet implemented; return empty list for API compatibility
     return {"ok": True, "history": []}
 
-
-@app.get("/debug/distance", response_class=HTMLResponse)
-async def debug_distance(
-    course_id: int | None = Query(default=None),
-    refresh: bool = Query(default=False),
-    limit: int = Query(default=500),
-):
-    s = _get_session(False)
-    # Resolve course id: explicit param > selected in session
-    if course_id is None:
-        if s and s.get_selected_course_id():
-            course_id = s.get_selected_course_id()
-        else:
-            return HTMLResponse("No course selected. Supply ?course_id=... or select a course in the UI.", status_code=400)
-
-    # Optionally re-sync
-    if refresh and s:
-        try:
-            from app.services.orchestrator import create_orchestrator
-            _sync = create_orchestrator()
-            await _sync.run(s, int(course_id))
-        except Exception as e:
-            return HTMLResponse(f"Sync failed: {html.escape(str(e))}", status_code=500)
-
-    dbp = distance_db_path(int(course_id))
-    if not dbp.exists():
-        return HTMLResponse(f"DB missing for course {course_id} at {dbp}. Select the course first.", status_code=404)
-
-    con = sqlite3.connect(dbp)
-    cur = con.cursor()
-    rows = cur.execute(
-        """SELECT student_id, student_name, last_exam_date, exam_name,
-                  target_score, total_score, gap, gap_change
-             FROM distance
-            ORDER BY student_name COLLATE NOCASE
-            LIMIT ?""",
-        (int(limit),)
-    ).fetchall()
-    con.close()
-
-    # Render simple HTML table
-    def esc(x): return html.escape("" if x is None else str(x))
-    trs = "\n".join(
-        f"<tr><td>{esc(r[0])}</td><td>{esc(r[1])}</td><td>{esc(r[2])}</td>"
-        f"<td>{esc(r[3])}</td><td>{esc(r[4])}</td><td>{esc(r[5])}</td>"
-        f"<td>{esc(r[6])}</td><td>{esc(r[7])}</td></tr>"
-        for r in rows
-    )
-    html_doc = f"""
-    <html dir="rtl" lang="he"><head><meta charset="utf-8">
-    <title>Debug Distance</title>
-    <style>table{{border-collapse:collapse}}td,th{{border:1px solid #ccc;padding:.3rem .5rem}}</style>
-    </head><body>
-    <h2>Distance DB — Course {esc(course_id)}</h2>
-    <p><a href="/debug/distance?course_id={esc(course_id)}&refresh=1">רענן / סנכרן כעת</a></p>
-    <table>
-      <thead><tr>
-        <th>student_id</th><th>student_name</th><th>last_exam_date</th>
-        <th>exam_name</th><th>target_score</th><th>total_score</th>
-        <th>gap</th><th>gap_change</th>
-      </tr></thead>
-      <tbody>
-        {trs or '<tr><td colspan="8"><i>אין נתונים</i></td></tr>'}
-      </tbody>
-    </table>
-    </body></html>
-    """
-    return HTMLResponse(html_doc)
-
-
-# --- Debug: messages table ---
-
-@app.get("/debug/messages")
-async def debug_messages(course_id: int):
-    try:
-        rows = SYNC.list_messages(course_id)
-        return {"ok": True, "count": len(rows), "data": rows}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
