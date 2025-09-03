@@ -127,4 +127,19 @@ class KidumApiSession:
         payload = r.json()
         if not payload.get("status"):
             raise RuntimeError(f"Distance API error: {payload}")
-        return payload.get("data", [])
+        data = payload.get("data", [])
+        # The API historically returned a list directly under the ``data`` key,
+        # but newer versions wrap the data inside an object which may contain
+        # separate lists for new and updated rows (e.g. ``{"new": [...], "updated": [...]}``).
+        # Gather all list values so both newly inserted and modified records are
+        # processed.  This prevents silent failures when one of the lists is
+        # empty or ignored by older client logic.
+        if isinstance(data, dict):
+            combined: List[Dict[str, Any]] = []
+            for value in data.values():
+                if isinstance(value, list):
+                    combined.extend(value)
+            data = combined
+        elif not isinstance(data, list):
+            data = []
+        return data
