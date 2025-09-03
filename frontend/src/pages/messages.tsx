@@ -7,6 +7,7 @@ import { MessageEditorModal } from '../components/MessageEditorModal'
 import { useStatus } from '../hooks/useStatus'
 import { useMessages } from '../hooks/useMessages'
 import { api } from '../lib/api'
+import toast from 'react-hot-toast'
 
 export default function MessagesPage() {
   const nav = useNavigate()
@@ -44,7 +45,19 @@ export default function MessagesPage() {
         setTypeFilter={setTypeFilter}
         search={search}
         setSearch={setSearch}
-        onRefresh={() => messages.refetch()}
+        onRefresh={() => {
+          if (courseId == null) {
+            toast.error('בחר קורס')
+            return
+          }
+          api
+            .selectCourse(courseId)
+            .then(() => {
+              messages.refetch()
+              toast.success('רשימה עודכנה')
+            })
+            .catch(err => toast.error(err.message))
+        }}
       />
       <div className="p-4 grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px,1fr))' }}>
         {allMessages.map((m: any) => (
