@@ -49,8 +49,11 @@ def ensure_teacher_schema(engine: Engine, teacher_id: str) -> None:
     """
 
     schema = f"teacher_{teacher_id}"
-    conn = engine.connect()
-    try:
+    # Use a transaction so that the schema and table creation is committed.
+    # Without an explicit commit, ``CREATE`` statements executed on a plain
+    # connection would be rolled back when the connection closes, leading to
+    # missing tables at runtime.
+    with engine.begin() as conn:
         conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema}"'))
         metadata = MetaData(schema=schema)
 
@@ -94,7 +97,3 @@ def ensure_teacher_schema(engine: Engine, teacher_id: str) -> None:
         )
 
         metadata.create_all(conn)
-    finally:
-        close = getattr(conn, "close", None)
-        if callable(close):
-            close()
