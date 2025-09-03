@@ -6,6 +6,7 @@ import { StudentCard } from '../components/StudentCard'
 import { MessageEditorModal } from '../components/MessageEditorModal'
 import { useStatus } from '../hooks/useStatus'
 import { useMessages } from '../hooks/useMessages'
+import { api } from '../lib/api'
 
 export default function MessagesPage() {
   const nav = useNavigate()
@@ -26,7 +27,10 @@ export default function MessagesPage() {
 
   return (
     <AppShell>
-      <button onClick={() => window.close()} className="fixed top-4 right-4 bg-gray-300 px-2 py-1 rounded">
+      <button
+        onClick={() => api.logout().then(() => nav('/'))}
+        className="fixed top-4 right-4 bg-gray-300 px-2 py-1 rounded"
+      >
         יציאה
       </button>
       <FilterBar
